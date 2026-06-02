@@ -287,6 +287,43 @@ def test_nested_closures():
     assert "15" in output
     print("Test 12 Passed!\n")
 
+def test_quantumnito_schrodinger_schema():
+    print("--- Running Test 13: QuantumNito Schrödinger's Schema ---")
+    
+    # Caso 1: El payload tiene la propiedad avatar
+    source1 = (
+        'nito payload = QuantumNito(crear_payload(NITO))\n'
+        'nito avatar_url = payload.user.profile.avatar nito_o "default.png"\n'
+        'nito_imprimir(avatar_url)\n'
+    )
+    
+    # Caso 2: El payload no tiene la propiedad avatar (user es un dict vacío)
+    source2 = (
+        'nito payload = QuantumNito(crear_payload(NO_NITO))\n'
+        'nito avatar_url = payload.user.profile.avatar nito_o "default.png"\n'
+        'nito_imprimir(avatar_url)\n'
+    )
+
+    old_stdout = sys.stdout
+    sys.stdout = buffer1 = io.StringIO()
+    evaluator1 = Evaluator()
+    run_code(source1, evaluator1)
+    
+    sys.stdout = buffer2 = io.StringIO()
+    evaluator2 = Evaluator()
+    run_code(source2, evaluator2)
+    
+    sys.stdout = old_stdout
+    output1 = buffer1.getvalue().strip()
+    output2 = buffer2.getvalue().strip()
+    
+    print("Output 1 (con avatar):", output1)
+    print("Output 2 (sin avatar):", output2)
+    
+    assert "avatar_premium.png" in output1
+    assert "default.png" in output2
+    print("Test 13 Passed!\n")
+
 if __name__ == "__main__":
     test_levenshtein_healing()
     test_indentation_blocks()
@@ -309,4 +346,7 @@ if __name__ == "__main__":
     # NitoScript 0.1.0 Lexical Closures tests
     test_nested_closures()
     
-    print("All NitoScript 0.1.0 tests completed successfully!")
+    # NitoScript 0.1.2 QuantumNito tests
+    test_quantumnito_schrodinger_schema()
+    
+    print("All NitoScript tests completed successfully!")

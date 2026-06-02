@@ -89,6 +89,11 @@ class LiteralNode(ASTNode):
     def __init__(self, value: Any):
         self.value = value
 
+class GetNode(ASTNode):
+    def __init__(self, obj: ASTNode, name: str):
+        self.obj = obj
+        self.name = name
+
 # ==============================================================================
 # TOKENS & LEXER
 # ==============================================================================
@@ -875,6 +880,9 @@ class Parser:
                             break
                 self.consume(TokenType.RPAREN, "Expect ')' after arguments.")
                 expr = CallNode(expr, args)
+            elif self.match(TokenType.DOT):
+                name = self.consume(TokenType.IDENTIFIER, "Expect property name after '.'.").value
+                expr = GetNode(expr, name)
             else:
                 break
         return expr
@@ -989,10 +997,50 @@ class NitoSupremeType:
 
 NitoSupreme = NitoSupremeType()
 
+class QuantumNitoType:
+    def __init__(self, value: Any, is_null: bool = False):
+        self.value = value
+        self.is_null = is_null
+
+    def get_property(self, name: str) -> 'QuantumNitoType':
+        if self.is_null or self.value is None:
+            return QuantumNitoType(None, is_null=True)
+        if isinstance(self.value, dict):
+            if name in self.value:
+                return QuantumNitoType(self.value[name])
+            return QuantumNitoType(None, is_null=True)
+        try:
+            val = getattr(self.value, name)
+            return QuantumNitoType(val)
+        except AttributeError:
+            return QuantumNitoType(None, is_null=True)
+
+    def __getattr__(self, name: str) -> 'QuantumNitoType':
+        return self.get_property(name)
+
+    def unwrap(self) -> Any:
+        if self.is_null:
+            return None
+        if isinstance(self.value, QuantumNitoType):
+            return self.value.unwrap()
+        return self.value
+
+    def __bool__(self) -> bool:
+        val = self.unwrap()
+        return bool(val)
+
+    def __repr__(self) -> str:
+        if self.is_null:
+            return "QuantumNito(Null)"
+        return f"QuantumNito({self.unwrap()})"
+
 def is_nito(value: Any) -> bool:
     return isinstance(value, NitoSupremeType)
 
 def evaluate_binary_op(left: Any, op: str, right: Any) -> Any:
+    if isinstance(left, QuantumNitoType): left = left.unwrap()
+    if isinstance(right, QuantumNitoType): right = right.unwrap()
+
     if op == "es igual a": op = "=="
     elif op in ("es mayor que", "nito_mayor"): op = ">"
     elif op in ("es menor que", "nito_menor"): op = "<"
@@ -1046,6 +1094,8 @@ def evaluate_binary_op(left: Any, op: str, right: Any) -> Any:
     if op == "%":
         if right == 0: raise ZeroDivisionError("Modulo by zero.")
         return left % right
+    if op == "nito_o": return left or right
+    if op == "nito_y": return left and right
 
     raise RuntimeError(f"Unknown operator: {op}")
 
@@ -1211,6 +1261,7 @@ class Opcode(Enum):
     PRINT = auto()
     IMPORT_FFI = auto()
     POP_TOP = auto()
+    GET_PROPERTY = auto()
 
 class Instruction:
     def __init__(self, opcode: Opcode, arg: Any = None):
@@ -1276,8 +1327,12 @@ class Compiler:
             elif node.op == "*": self.code.emit(Opcode.MUL)
             elif node.op == "/": self.code.emit(Opcode.DIV)
             elif node.op == "%": self.code.emit(Opcode.MOD)
-            elif node.op in ("==", "!=", "<", ">", "<=", ">="):
+            elif node.op in ("==", "!=", "<", ">", "<=", ">=", "nito_o", "nito_y"):
                 self.code.emit(Opcode.COMPARE, node.op)
+        elif isinstance(node, GetNode):
+            self.compile(node.obj)
+            name_idx = self.code.add_name(node.name)
+            self.code.emit(Opcode.GET_PROPERTY, name_idx)
         elif isinstance(node, UnaryOpNode):
             if node.op == "-":
                 # Emulate negative as 0 - val
@@ -1447,10 +1502,14 @@ class NitoSupremeExecutor:
             self.ip = arg
         elif op == Opcode.JUMP_IF_FALSE:
             val = self.pop_stack()
+            if isinstance(val, QuantumNitoType):
+                val = val.unwrap()
             if not bool(val):
                 self.ip = arg
         elif op == Opcode.PRINT:
             val = self.pop_stack()
+            if isinstance(val, QuantumNitoType):
+                val = val.unwrap()
             if val is True: print("NITO")
             elif val is False: print("NO_NITO")
             else: print(val)
@@ -1486,6 +1545,19 @@ class NitoSupremeExecutor:
                 raise ImportError(f"Cannot import native function '{name}' from '{module_name}': {e}")
         elif op == Opcode.POP_TOP:
             self.pop_stack()
+        elif op == Opcode.GET_PROPERTY:
+            name = self.code.names[arg]
+            obj = self.pop_stack()
+            if isinstance(obj, QuantumNitoType):
+                val = obj.get_property(name)
+            elif isinstance(obj, dict):
+                val = QuantumNitoType(obj.get(name, None)) if name not in obj else QuantumNitoType(obj[name])
+            else:
+                try:
+                    val = QuantumNitoType(getattr(obj, name))
+                except AttributeError:
+                    val = QuantumNitoType(None, is_null=True)
+            self.stack.append(val)
         else:
             raise RuntimeError(f"Unknown executor opcode {op.name}")
 
@@ -1501,6 +1573,8 @@ class Evaluator:
         # Inject native simulator functions
         self.global_env.define("iniciar_bot", NitoNativeFunction("iniciar_bot", self._native_iniciar_bot))
         self.global_env.define("responder", NitoNativeFunction("responder", self._native_responder))
+        self.global_env.define("QuantumNito", NitoNativeFunction("QuantumNito", self._native_quantum_nito))
+        self.global_env.define("crear_payload", NitoNativeFunction("crear_payload", self._native_crear_payload))
 
     def _native_iniciar_bot(self, token: Any) -> str:
         print(f"[Bot Simulator] Bot conectado exitosamente usando token: '{token}'")
@@ -1511,6 +1585,15 @@ class Evaluator:
             print("[Bot Response] Nito (Absorbido)")
         else:
             print(f"[Bot Response] {msg}")
+
+    def _native_quantum_nito(self, val: Any) -> QuantumNitoType:
+        return QuantumNitoType(val)
+
+    def _native_crear_payload(self, has_avatar: Any) -> dict:
+        if has_avatar:
+            return {"user": {"profile": {"avatar": "avatar_premium.png"}}}
+        else:
+            return {"user": {}}
 
     def evaluate(self, node: ASTNode) -> Any:
         # Compiler AST to bytecode
