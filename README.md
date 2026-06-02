@@ -191,7 +191,7 @@ NitoBlocks evoluciona en la versión **v0.1.3** hacia un estándar AAA de progra
 ### 6.1. Rediseño Estético Lavender & Soft Pastel Blue Glassmorphic
 La interfaz visual de NitoBlocks ha sido completamente renovada bajo un sofisticado y limpio diseño de cristal esmerilado que se alinea fielmente con los assets y banners de la marca oficial:
 *   **Cristal Esmerilado (Light/Frosted Glass)**: Paneles y tarjetas translúcidas de cristal claro con un desenfoque de fondo premium (`backdrop-filter: blur(25px)`) y bordes estilizados en tonalidades lavanda.
-*   **Relieves y Brillos Fieles**: Los bloques LEGO visuales respetan las proporciones tridimensionales y studs circulares de los banners oficiales, simulando la refracción física de la luz sobre plástico translúcido.
+*   **Relieves y Brillos Fieles**: Los NitoBlocks visuales respetan las proporciones tridimensionales y studs circulares de los banners oficiales, simulando la refracción física de la luz sobre plástico translúcido.
 *   **Consola y Scope Explorer Integrados**: Editores de código que contrastan de forma elegante en un fondo azul índigo de medianoche, acompañados de una consola en color cian fósforo reactivo (`#81ecec`) y un explorador que ilumina los tipos de datos del scope léxico.
 
 ### 6.2. Analizador Estático de Flujo Visual (Luminescent Energy Wires)
@@ -211,7 +211,7 @@ Para eliminar la barrera de la jerga técnica, el editor visual sustituye los t�
 ### 6.4. Integración con el Servidor API Backend Real (`server.py`)
 NitoBlocks cuenta con un backend HTTP multipropósito en Python (puerto 8085) que sirve la aplicación web y expone un endpoint seguro (`/api/run`). Al presionar "Ejecutar Bloques", la pila se compila topológicamente, se traduce a NitoScript, y es ejecutada por la máquina virtual nativa de `nito.py` en un sandbox, retornando los resultados reales e historiales a la consola web.
 
-### 6.5. LEGO Audio Snaps
+### 6.5. NitoBlocks Audio Snaps
 La aplicación hace uso de la Web Audio API para emitir un satisfactorio sonido físico (Snap!) tridimensional sintetizado en tiempo real cuando los bloques se encajan en el lienzo.
 
 ---

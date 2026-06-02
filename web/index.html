@@ -46,23 +46,20 @@
     </header>
 
     <main class="app-container">
-        <!-- Toolbox (Left Pane - Reworked Nodes Library) -->
+        <!-- Toolbox (Left Pane - Reworked NitoBlocks Paleta de Bloques) -->
         <aside class="toolbox-panel">
-            <h2>Librería de Nodos</h2>
-            <p class="panel-desc">Arrastra bloques LEGO al lienzo o haz clic en ellos para instanciarlos en tu programa.</p>
+            <h2>Paleta de Bloques</h2>
+            <p class="panel-desc">Arrastra NitoBlocks al lienzo o haz clic en ellos para conectarlos en tu programa.</p>
             
+            <button id="btn-show-custom-modal" class="btn btn-secondary" style="width: 100%; margin-bottom: 20px; justify-content: center; background: rgba(108, 92, 231, 0.1); border-color: rgba(108,92,231,0.25); font-weight: 700;">✨ Definir NitoBlock Custom</button>
+
             <div class="block-category">
                 <h3>Eventos</h3>
                 <!-- Discord Event Block -->
-                <div class="block-template node-preview-card event-block" draggable="true" data-type="discord_event">
+                <div class="block-template lego-block event-block" draggable="true" data-type="discord_event">
                     <div class="block-studs"><span></span><span></span><span></span><span></span></div>
-                    <div class="mini-node-header">Al Recibir Mensaje</div>
-                    <div class="mini-node-ports">
-                        <div class="mini-ports-left"></div>
-                        <div class="mini-ports-right">
-                            <span class="mini-port-dot flow-dot" title="Flujo de ejecución"></span>
-                            <span class="mini-port-dot string-dot" title="Datos del mensaje"></span>
-                        </div>
+                    <div class="block-content">
+                        <span class="block-label">Al recibir mensaje de Discord:</span>
                     </div>
                 </div>
             </div>
@@ -70,60 +67,34 @@
             <div class="block-category">
                 <h3>Lógica y Control</h3>
                 <!-- If Condition Block -->
-                <div class="block-template node-preview-card control-block" draggable="true" data-type="nito_si">
+                <div class="block-template lego-block control-block" draggable="true" data-type="nito_si">
                     <div class="block-studs"><span></span><span></span><span></span><span></span></div>
-                    <div class="mini-node-header">Si Condición</div>
-                    <div class="mini-node-ports">
-                        <div class="mini-ports-left">
-                            <span class="mini-port-dot flow-dot"></span>
-                            <span class="mini-port-dot string-dot"></span>
-                        </div>
-                        <div class="mini-ports-right">
-                            <span class="mini-port-dot flow-dot"></span>
-                            <span class="mini-port-dot any-dot"></span>
-                        </div>
+                    <div class="block-content">
+                        <span class="block-label">nito_si [mensaje] es igual a:</span>
+                        <input type="text" class="block-input" placeholder="ping" value="ping" readonly style="pointer-events: none;">
                     </div>
                 </div>
                 <!-- Sino Si Condition Block -->
-                <div class="block-template node-preview-card control-block" draggable="true" data-type="nito_sino_si">
+                <div class="block-template lego-block control-block" draggable="true" data-type="nito_sino_si">
                     <div class="block-studs"><span></span><span></span><span></span><span></span></div>
-                    <div class="mini-node-header">Sino Si Condición</div>
-                    <div class="mini-node-ports">
-                        <div class="mini-ports-left">
-                            <span class="mini-port-dot flow-dot"></span>
-                            <span class="mini-port-dot string-dot"></span>
-                        </div>
-                        <div class="mini-ports-right">
-                            <span class="mini-port-dot flow-dot"></span>
-                            <span class="mini-port-dot any-dot"></span>
-                        </div>
+                    <div class="block-content">
+                        <span class="block-label">nito_sino_si [mensaje] es igual a:</span>
+                        <input type="text" class="block-input" placeholder="pong" value="pong" readonly style="pointer-events: none;">
                     </div>
                 </div>
                 <!-- Sino Block -->
-                <div class="block-template node-preview-card control-block" draggable="true" data-type="nito_sino">
+                <div class="block-template lego-block control-block" draggable="true" data-type="nito_sino">
                     <div class="block-studs"><span></span><span></span><span></span><span></span></div>
-                    <div class="mini-node-header">Sino</div>
-                    <div class="mini-node-ports">
-                        <div class="mini-ports-left">
-                            <span class="mini-port-dot flow-dot"></span>
-                        </div>
-                        <div class="mini-ports-right">
-                            <span class="mini-port-dot flow-dot"></span>
-                        </div>
+                    <div class="block-content">
+                        <span class="block-label">nito_sino</span>
                     </div>
                 </div>
                 <!-- While Loop Block -->
-                <div class="block-template node-preview-card control-block" draggable="true" data-type="nito_mientras">
+                <div class="block-template lego-block control-block" draggable="true" data-type="nito_mientras">
                     <div class="block-studs"><span></span><span></span><span></span><span></span></div>
-                    <div class="mini-node-header">Bucle Mientras</div>
-                    <div class="mini-node-ports">
-                        <div class="mini-ports-left">
-                            <span class="mini-port-dot flow-dot"></span>
-                            <span class="mini-port-dot any-dot"></span>
-                        </div>
-                        <div class="mini-ports-right">
-                            <span class="mini-port-dot flow-dot"></span>
-                        </div>
+                    <div class="block-content">
+                        <span class="block-label">nito_mientras [condición] haz:</span>
+                        <input type="text" class="block-input" placeholder="NITO" value="NITO" readonly style="pointer-events: none;">
                     </div>
                 </div>
             </div>
@@ -131,58 +102,35 @@
             <div class="block-category">
                 <h3>Acciones</h3>
                 <!-- Print Block -->
-                <div class="block-template node-preview-card action-block" draggable="true" data-type="imprimir">
+                <div class="block-template lego-block action-block" draggable="true" data-type="imprimir">
                     <div class="block-studs"><span></span><span></span><span></span><span></span></div>
-                    <div class="mini-node-header">Imprimir Consola</div>
-                    <div class="mini-node-ports">
-                        <div class="mini-ports-left">
-                            <span class="mini-port-dot flow-dot"></span>
-                            <span class="mini-port-dot any-dot"></span>
-                        </div>
-                        <div class="mini-ports-right">
-                            <span class="mini-port-dot flow-dot"></span>
-                        </div>
+                    <div class="block-content">
+                        <span class="block-label">imprimir en consola:</span>
+                        <input type="text" class="block-input" placeholder="¡Pong!" value="¡Pong!" readonly style="pointer-events: none;">
                     </div>
                 </div>
                 <!-- Discord Reply Block -->
-                <div class="block-template node-preview-card action-block" draggable="true" data-type="discord_responder">
+                <div class="block-template lego-block action-block" draggable="true" data-type="discord_responder">
                     <div class="block-studs"><span></span><span></span><span></span><span></span></div>
-                    <div class="mini-node-header">Responder Canal</div>
-                    <div class="mini-node-ports">
-                        <div class="mini-ports-left">
-                            <span class="mini-port-dot flow-dot"></span>
-                            <span class="mini-port-dot any-dot"></span>
-                        </div>
-                        <div class="mini-ports-right">
-                            <span class="mini-port-dot flow-dot"></span>
-                        </div>
+                    <div class="block-content">
+                        <span class="block-label">responder al canal:</span>
+                        <input type="text" class="block-input" placeholder="¡Hola Nito!" value="¡Hola Nito!" readonly style="pointer-events: none;">
                     </div>
                 </div>
                 <!-- Import FFI Block -->
-                <div class="block-template node-preview-card action-block" draggable="true" data-type="nito_importar">
+                <div class="block-template lego-block action-block" draggable="true" data-type="nito_importar">
                     <div class="block-studs"><span></span><span></span><span></span><span></span></div>
-                    <div class="mini-node-header">Importar FFI</div>
-                    <div class="mini-node-ports">
-                        <div class="mini-ports-left">
-                            <span class="mini-port-dot flow-dot"></span>
-                        </div>
-                        <div class="mini-ports-right">
-                            <span class="mini-port-dot flow-dot"></span>
-                        </div>
+                    <div class="block-content">
+                        <span class="block-label">importar modulo FFI:</span>
+                        <input type="text" class="block-input" placeholder="math.sin" value="math.sin" readonly style="pointer-events: none;">
                     </div>
                 </div>
                 <!-- Return Block -->
-                <div class="block-template node-preview-card action-block" draggable="true" data-type="nito_retorna">
+                <div class="block-template lego-block action-block" draggable="true" data-type="nito_retorna">
                     <div class="block-studs"><span></span><span></span><span></span><span></span></div>
-                    <div class="mini-node-header">Retornar Valor</div>
-                    <div class="mini-node-ports">
-                        <div class="mini-ports-left">
-                            <span class="mini-port-dot flow-dot"></span>
-                            <span class="mini-port-dot any-dot"></span>
-                        </div>
-                        <div class="mini-ports-right">
-                            <span class="mini-port-dot flow-dot"></span>
-                        </div>
+                    <div class="block-content">
+                        <span class="block-label">retornar valor:</span>
+                        <input type="text" class="block-input" placeholder="NITO" value="NITO" readonly style="pointer-events: none;">
                     </div>
                 </div>
             </div>
@@ -190,14 +138,10 @@
             <div class="block-category">
                 <h3>Axiomas Divinos</h3>
                 <!-- Nito Supreme Block -->
-                <div class="block-template node-preview-card supreme-block" draggable="true" data-type="nito_supreme">
+                <div class="block-template lego-block supreme-block" draggable="true" data-type="nito_supreme">
                     <div class="block-studs"><span></span><span></span><span></span><span></span></div>
-                    <div class="mini-node-header">Nito Supremo</div>
-                    <div class="mini-node-ports">
-                        <div class="mini-ports-left"></div>
-                        <div class="mini-ports-right">
-                            <span class="mini-port-dot any-dot"></span>
-                        </div>
+                    <div class="block-content">
+                        <span class="block-label">Nito (Elemento Supremo)</span>
                     </div>
                 </div>
             </div>
@@ -205,30 +149,17 @@
             <div class="block-category">
                 <h3>Operadores Cuánticos</h3>
                 <!-- QuantumNito Block -->
-                <div class="block-template node-preview-card control-block" draggable="true" data-type="quantum_nito">
+                <div class="block-template lego-block control-block" draggable="true" data-type="quantum_nito">
                     <div class="block-studs"><span></span><span></span><span></span><span></span></div>
-                    <div class="mini-node-header">QuantumNito</div>
-                    <div class="mini-node-ports">
-                        <div class="mini-ports-left">
-                            <span class="mini-port-dot any-dot"></span>
-                        </div>
-                        <div class="mini-ports-right">
-                            <span class="mini-port-dot any-dot"></span>
-                        </div>
+                    <div class="block-content">
+                        <span class="block-label">QuantumNito (Caja)</span>
                     </div>
                 </div>
                 <!-- Coalescence Block -->
-                <div class="block-template node-preview-card control-block" draggable="true" data-type="nito_o">
+                <div class="block-template lego-block control-block" draggable="true" data-type="nito_o">
                     <div class="block-studs"><span></span><span></span><span></span><span></span></div>
-                    <div class="mini-node-header">Coalescencia nito_o</div>
-                    <div class="mini-node-ports">
-                        <div class="mini-ports-left">
-                            <span class="mini-port-dot any-dot"></span>
-                            <span class="mini-port-dot any-dot"></span>
-                        </div>
-                        <div class="mini-ports-right">
-                            <span class="mini-port-dot any-dot"></span>
-                        </div>
+                    <div class="block-content">
+                        <span class="block-label">Coalescencia nito_o</span>
                     </div>
                 </div>
             </div>
@@ -237,8 +168,8 @@
         <!-- Workspace (Center Pane) -->
         <section class="workspace-panel">
             <div class="panel-header">
-                <h2>🏗️ Lienzo de Conexión de Nodos (Workspace)</h2>
-                <span class="instruction-tip">Suelta los bloques e interconecta sus puertos para programar flujos cuánticos</span>
+                <h2>Lienzo de Conexión de NitoBlocks (Workspace)</h2>
+                <span class="instruction-tip">Suelta los NitoBlocks e interconecta sus puertos para programar flujos cuánticos</span>
             </div>
             <div id="workspace" class="workspace-dropzone">
                 <div class="workspace-grid-overlay"></div>
@@ -305,6 +236,51 @@
     <footer class="app-footer">
         <p>NitoScript v0.1.3 & NitoBlocks IDE - Diseñado para una resiliencia sintáctica absoluta.</p>
     </footer>
+
+    <!-- Glassmorphic Modal for Custom NitoBlock Creation -->
+    <div id="custom-block-modal" class="modal-overlay" style="display: none;">
+        <div class="modal-content glass-modal">
+            <div class="modal-header">
+                <h3>Definir Nuevo NitoBlock Custom</h3>
+                <span id="close-modal-btn" class="close-modal">&times;</span>
+            </div>
+            <div class="modal-body">
+                <div class="form-group">
+                    <label for="custom-name">Identificador (Ej: duplicar_nito):</label>
+                    <input type="text" id="custom-name" placeholder="mi_accion_custom" value="mi_bloque">
+                </div>
+                <div class="form-group">
+                    <label for="custom-label">Texto en Bloque:</label>
+                    <input type="text" id="custom-label" placeholder="Etiqueta del bloque..." value="Multiplicar por Nito:">
+                </div>
+                <div class="form-group">
+                    <label for="custom-category">Categoría NitoBlocks Aura:</label>
+                    <select id="custom-category">
+                        <option value="event-block">Eventos (Púrpura)</option>
+                        <option value="control-block">Control y Lógica (Azul)</option>
+                        <option value="action-block" selected>Acciones (Verde)</option>
+                        <option value="supreme-block">Elemento Supremo (Oro)</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Configuración de Puertos (Sockets):</label>
+                    <div class="checkbox-group">
+                        <label><input type="checkbox" id="custom-has-in-flow" checked> Entrada de Flujo</label>
+                        <label><input type="checkbox" id="custom-has-out-flow" checked> Salida de Flujo</label>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label for="custom-inputs-data">Nombres de Puertos de Entrada de Datos (Separados por comas):</label>
+                    <input type="text" id="custom-inputs-data" placeholder="Ej: valor1, valor2" value="valor">
+                </div>
+                <div class="form-group">
+                    <label for="custom-code">Código NitoScript Generado (Usa {ID} y {nombre_puerto}):</label>
+                    <textarea id="custom-code" rows="3" placeholder="Ej: nito {ID}_res = {valor} * Nito">nito {ID}_res = {valor} * Nito</textarea>
+                </div>
+                <button id="btn-create-custom-confirm" class="btn btn-primary" style="width: 100%; justify-content: center; margin-top: 15px;">Definir NitoBlock</button>
+            </div>
+        </div>
+    </div>
 
     <script src="app.js"></script>
 </body>

@@ -63,6 +63,10 @@ document.addEventListener('DOMContentLoaded', () => {
     let connections = []; // { id, fromNode, fromPort, toNode, toPort, pathElement }
     let nodeCounter = 0;
     let connectionCounter = 0;
+    
+    // Custom block registry
+    let customBlockRegistry = {};
+    let selectedNodeId = null;
 
     // Viewport transforms (Figma/Blender scale and pan model)
     let zoomScale = 1.0;
@@ -181,13 +185,35 @@ document.addEventListener('DOMContentLoaded', () => {
         label.style.pointerEvents = 'none';
         header.appendChild(label);
 
+        // Selection trigger on block mousedown
+        block.addEventListener('mousedown', (e) => {
+            document.querySelectorAll('.lego-block').forEach(b => b.classList.remove('selected-node'));
+            block.classList.add('selected-node');
+            selectedNodeId = nodeId;
+        });
+
+        // Duplicate Button
+        const copyBtn = document.createElement('span');
+        copyBtn.className = 'copy-block-btn';
+        copyBtn.innerHTML = '📋 ';
+        copyBtn.style.cursor = 'pointer';
+        copyBtn.style.fontSize = '13px';
+        copyBtn.style.marginLeft = 'auto';
+        copyBtn.style.marginRight = '8px';
+        copyBtn.style.color = 'rgba(255, 255, 255, 0.75)';
+        copyBtn.title = "Duplicar bloque";
+        copyBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            duplicateNode(nodeId);
+        });
+        header.appendChild(copyBtn);
+
         // Close Button
         const removeBtn = document.createElement('span');
         removeBtn.className = 'remove-block-btn';
-        removeBtn.innerHTML = ' &times;';
+        removeBtn.innerHTML = '&times;';
         removeBtn.style.cursor = 'pointer';
         removeBtn.style.fontSize = '16px';
-        removeBtn.style.marginLeft = 'auto';
         removeBtn.style.color = 'var(--text-secondary)';
         removeBtn.addEventListener('click', (e) => {
             e.stopPropagation();
@@ -406,6 +432,23 @@ document.addEventListener('DOMContentLoaded', () => {
             createPort(inputsPanel, 'in_data_fallback', 'Respaldo', 'data-any', 'input');
             
             createPort(outputsPanel, 'out_data_res', 'Fusion', 'data-any', 'output');
+        }
+        else if (customBlockRegistry[type]) {
+            const def = customBlockRegistry[type];
+            if (def.hasInFlow) {
+                createPort(inputsPanel, 'in_flow', 'Flujo', 'flow', 'input');
+            }
+            if (def.inputsList && def.inputsList.length > 0) {
+                def.inputsList.forEach(inputName => {
+                    if (inputName.trim() !== "") {
+                        createPort(inputsPanel, `in_data_${inputName.trim()}`, inputName.trim(), 'data-any', 'input');
+                    }
+                });
+            }
+            if (def.hasOutFlow) {
+                createPort(outputsPanel, 'out_flow', 'Haz', 'flow', 'output');
+            }
+            createPort(outputsPanel, 'out_data_res', 'resultado', 'data-any', 'output');
         }
     }
 
@@ -801,6 +844,24 @@ document.addEventListener('DOMContentLoaded', () => {
         else if (type === 'nito_retorna') {
             const resolvedVal = getDataInputSource(nodeId, 'in_data_val') || `"${rawValue}"`;
             compiledBlocks.push(`${indent}nito_retorna ${resolvedVal}`);
+        }
+        else if (customBlockRegistry[type]) {
+            const def = customBlockRegistry[type];
+            let templateCode = def.codePattern;
+            
+            // Resolve dynamic custom variables
+            let resolvedCodeStr = templateCode.replace(/{ID}/g, nodeId);
+            if (def.inputsList && def.inputsList.length > 0) {
+                def.inputsList.forEach(inputName => {
+                    if (inputName.trim() !== "") {
+                        const trimmed = inputName.trim();
+                        const sourceVal = getDataInputSource(nodeId, `in_data_${trimmed}`) || `"${rawValue}"`;
+                        const regex = new RegExp(`{${trimmed}}`, 'g');
+                        resolvedCodeStr = resolvedCodeStr.replace(regex, sourceVal);
+                    }
+                });
+            }
+            compiledBlocks.push(`${indent}${resolvedCodeStr}`);
         }
 
         // 3. PROPAGATE EXECUTION FLOW TO SUBSEQUENT CONNECTED NODES
@@ -1335,6 +1396,174 @@ document.addEventListener('DOMContentLoaded', () => {
             panY = 0;
             updateWorkspaceTransform();
             redrawConnections();
+        });
+    }
+
+    function duplicateNode(nodeId) {
+        const sourceNode = nodes.find(n => n.id === nodeId);
+        if (!sourceNode) return;
+        
+        const inputEl = sourceNode.element.querySelector('.block-input');
+        const value = inputEl ? inputEl.value : "";
+        
+        const posX = sourceNode.x + 30;
+        const posY = sourceNode.y + 30;
+        
+        const newBlock = createNodeInWorkspace(sourceNode.type, posX, posY);
+        const newInput = newBlock.querySelector('.block-input');
+        if (newInput) newInput.value = value;
+        
+        // Setup visual snaps
+        triggerSnapEffects(newBlock);
+        updateGeneratedCode();
+    }
+
+    // Keyboard clipboard copying and pasting
+    let clipboardNode = null;
+    window.addEventListener('keydown', (e) => {
+        // Ctrl+C to copy selected NitoBlock
+        if (e.ctrlKey && e.key === 'c') {
+            if (selectedNodeId) {
+                const nodeObj = nodes.find(n => n.id === selectedNodeId);
+                if (nodeObj) {
+                    const inputEl = nodeObj.element.querySelector('.block-input');
+                    clipboardNode = {
+                        type: nodeObj.type,
+                        value: inputEl ? inputEl.value : ""
+                    };
+                    logToConsole(`[Portapapeles] Copiado NitoBlock: ${getNodeLabel(nodeObj.type)}`, "info");
+                }
+            }
+        }
+        
+        // Ctrl+V to paste NitoBlock
+        if (e.ctrlKey && e.key === 'v') {
+            if (clipboardNode) {
+                // Spawn slightly offset from the visible center
+                const posX = (workspace.clientWidth / 2 - panX) / zoomScale - 130 + (Math.random() * 40 - 20);
+                const posY = (workspace.clientHeight / 2 - panY) / zoomScale - 60 + (Math.random() * 40 - 20);
+                
+                const newBlock = createNodeInWorkspace(clipboardNode.type, posX, posY);
+                const newInput = newBlock.querySelector('.block-input');
+                if (newInput) newInput.value = clipboardNode.value;
+                
+                // Set newly pasted node as active selection
+                document.querySelectorAll('.lego-block').forEach(b => b.classList.remove('selected-node'));
+                newBlock.classList.add('selected-node');
+                selectedNodeId = newBlock.id;
+                
+                triggerSnapEffects(newBlock);
+                updateGeneratedCode();
+                logToConsole(`[Portapapeles] Pegado NitoBlock: ${getNodeLabel(clipboardNode.type)}`, "info");
+            }
+        }
+    });
+
+    // Custom Block Creator Modal listeners
+    const customBlockModal = document.getElementById('custom-block-modal');
+    const btnShowCustomModal = document.getElementById('btn-show-custom-modal');
+    const btnCloseModal = document.getElementById('close-modal-btn');
+    const btnCreateCustomConfirm = document.getElementById('btn-create-custom-confirm');
+
+    if (btnShowCustomModal) {
+        btnShowCustomModal.addEventListener('click', () => {
+            customBlockModal.style.display = 'flex';
+        });
+    }
+
+    if (btnCloseModal) {
+        btnCloseModal.addEventListener('click', () => {
+            customBlockModal.style.display = 'none';
+        });
+    }
+
+    // Dismiss modal on backdrop click
+    if (customBlockModal) {
+        customBlockModal.addEventListener('click', (e) => {
+            if (e.target === customBlockModal) {
+                customBlockModal.style.display = 'none';
+            }
+        });
+    }
+
+    if (btnCreateCustomConfirm) {
+        btnCreateCustomConfirm.addEventListener('click', () => {
+            const rawName = document.getElementById('custom-name').value.trim();
+            const labelText = document.getElementById('custom-label').value.trim();
+            const category = document.getElementById('custom-category').value;
+            const hasInFlow = document.getElementById('custom-has-in-flow').checked;
+            const hasOutFlow = document.getElementById('custom-has-out-flow').checked;
+            const inputsStr = document.getElementById('custom-inputs-data').value.trim();
+            const codePattern = document.getElementById('custom-code').value.trim();
+
+            if (!rawName || !labelText) {
+                alert("Por favor, introduce un nombre identificador y una etiqueta.");
+                return;
+            }
+
+            const typeName = 'custom_' + rawName.toLowerCase().replace(/[^a-z0-9_]/g, '');
+            
+            // Parse inputs list
+            const inputsList = inputsStr ? inputsStr.split(',').map(s => s.trim()).filter(s => s !== "") : [];
+
+            // Register custom block definition
+            customBlockRegistry[typeName] = {
+                typeName: typeName,
+                labelText: labelText,
+                category: category,
+                hasInFlow: hasInFlow,
+                hasOutFlow: hasOutFlow,
+                inputsList: inputsList,
+                codePattern: codePattern
+            };
+
+            // Dynamically create the custom block template in a new category group in the sidebar
+            let customCatGroup = document.getElementById('custom-blocks-category');
+            if (!customCatGroup) {
+                customCatGroup = document.createElement('div');
+                customCatGroup.className = 'block-category';
+                customCatGroup.id = 'custom-blocks-category';
+                customCatGroup.innerHTML = `<h3>Bloques Custom</h3>`;
+                document.querySelector('.toolbox-panel').appendChild(customCatGroup);
+            }
+
+            const newTemplate = document.createElement('div');
+            newTemplate.className = `block-template lego-block ${category}`;
+            newTemplate.setAttribute('draggable', 'true');
+            newTemplate.setAttribute('data-type', typeName);
+            
+            newTemplate.innerHTML = `
+                <div class="block-studs"><span></span><span></span><span></span><span></span></div>
+                <div class="block-content">
+                    <span class="block-label">${labelText}</span>
+                </div>
+            `;
+
+            // Click to instantiate in workspace
+            newTemplate.addEventListener('click', () => {
+                const posX = (workspace.clientWidth / 2 - panX) / zoomScale - 130 + (Math.random() * 60 - 30);
+                const posY = (workspace.clientHeight / 2 - panY) / zoomScale - 60 + (Math.random() * 60 - 30);
+                const node = createNodeInWorkspace(typeName, posX, posY);
+                triggerSnapEffects(node);
+                updateGeneratedCode();
+            });
+
+            // HTML5 drag listener
+            newTemplate.addEventListener('dragstart', (e) => {
+                e.dataTransfer.setData('text/plain', typeName);
+            });
+
+            customCatGroup.appendChild(newTemplate);
+
+            // Hide modal and log
+            customBlockModal.style.display = 'none';
+            logToConsole(`[Paleta de Bloques] Definido NitoBlock Custom: ${labelText}`, "info");
+            
+            // Clean modal inputs
+            document.getElementById('custom-name').value = "mi_bloque_" + Math.floor(Math.random() * 100);
+            document.getElementById('custom-label').value = "Mi Bloque Nuevo:";
+            document.getElementById('custom-inputs-data').value = "valor";
+            document.getElementById('custom-code').value = "nito {ID}_res = {valor} * Nito";
         });
     }
 
