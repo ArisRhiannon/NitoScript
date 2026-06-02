@@ -3,7 +3,7 @@
 ![NitoScript Banner](assets/nitoscript_banner.png)
 
 <p align="left">
-  <a href="https://github.com/ArisRhiannon/NitoScript"><img src="https://img.shields.io/badge/Version-0.1.0-blueviolet?style=flat-square" alt="Version"></a>
+  <a href="https://github.com/ArisRhiannon/NitoScript"><img src="https://img.shields.io/badge/Version-0.1.2-blueviolet?style=flat-square" alt="Version"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/License-MIT-blue?style=flat-square" alt="License"></a>
   <a href="https://www.python.org/"><img src="https://img.shields.io/badge/Python-3.8%2B-brightgreen?style=flat-square" alt="Python"></a>
   <a href="https://github.com/ArisRhiannon/NitoScript"><img src="https://img.shields.io/badge/Tests-Passing-success?style=flat-square" alt="Tests"></a>
@@ -15,7 +15,7 @@
 
 ## Introducción
 
-NitoScript 0.1.0 es un lenguaje de programación diseñado bajo un esquema híbrido de resiliencia y semántica absoluta. Combina un compilador de árbol sintáctico (AST) a bytecode, una máquina virtual de pila iterada por un agente activo de ejecución, un sistema multinivel de auto-recuperación (Autohealing) y un entorno visual modular inspirado en bloques lógicos interconectables (NitoBlocks).
+NitoScript v0.1.2 evoluciona la propuesta original de tolerancia a fallos extrema y preeminencia semántica absoluta hacia un entorno apto para estructuras jerárquicas dinámicas complejas. Introduce el paradigma **QuantumNito (Schrödinger's Schema)** para accesos de propiedades seguros e inmunes a errores nulos, consolida un compilador formal robusto con soporte nativo de clausuras léxicas y control estricto de pila, e integra el entorno visual **NitoBlocks v0.1.1** con un servidor backend real en Python.
 
 ---
 
@@ -46,7 +46,7 @@ En comparaciones relacionales simples:
 
 ---
 
-## 2. Arquitectura de Ejecución: NitoSupremeExecutor
+## 2. Arquitectura de Ejecución: NitoSupremeExecutor (v0.1.2)
 
 ![NitoSupremeExecutor Banner](assets/nitosupremeexecuter_banner.png)
 
@@ -73,21 +73,25 @@ El conjunto de instrucciones se compone de opcodes compactos diseñados para ope
 
 | Opcode | Operación | Descripción |
 | :--- | :--- | :--- |
-| `LOAD_CONST` | Pila $\leftarrow$ Valor | Carga una constante en el tope de la pila. |
+| `LOAD_CONST` | Pila $\leftarrow$ Valor | Carga una constante en el tope de la pila. Realiza validación estricta de tipos (`add_const`). |
 | `DECLARE_NAME` | Scope $\leftarrow$ Variable | Registra un identificador en el espacio de nombres actual. |
 | `STORE_NAME` | Variable $\leftarrow$ Pila | Asigna el valor en el tope de la pila al identificador correspondiente. |
-| `LOAD_NAME` | Pila $\leftarrow$ Variable | Recupera el valor de un identificador y lo deposita en la pila. |
+| `LOAD_NAME` | Pila $\leftarrow$ Variable | Recupera el valor de un identificador de forma léxica y lo deposita en la pila. |
 | `ADD` / `SUB` / `MUL` / `DIV` | Aritmética | Realiza operaciones bajo el modelo de absorción y herejía. |
-| `COMPARE` | Lógica Relacional | Evalúa operadores relacionales ($>, <, ==, !=, \ge, \le$) integrando a `Nito`. |
-| `JUMP_IF_FALSE` | Control de Flujo | Salta a una dirección relativa si el operando en la pila es falso (`NO_NITO`). |
+| `MOD` | Módulo | Calcula el residuo aritmético. Lanza herejía ante la presencia de `Nito` en contextos de residuo. |
+| `COMPARE` | Lógica Relacional | Evalúa operadores relacionales ($>, <, ==, !=, \ge, \le$, y el operador de fusión `nito_o`) integrando a `Nito`. |
+| `JUMP_IF_FALSE` | Control de Flujo | Salta a una dirección relativa si el operando en la pila (tras ser desempaquetado de estados cuánticos) es falso (`NO_NITO`). |
 | `JUMP` | Salto Incondicional | Cambia el `ip` a una dirección relativa del flujo de instrucciones. |
-| `CALL` | Rutina | Crea un nuevo marco de ejecución y transfiere el flujo a una función. |
+| `CALL` | Rutina | Crea un nuevo marco de ejecución con soporte de cierres léxicos y transfiere el flujo a una función. |
 | `RETURN_VALUE` | Retorno | Devuelve el valor al marco de ejecución anterior. |
-| `IMPORT_FFI` | Vinculación Externa | Importa librerías dinámicas del sistema subyacente. |
+| `PRINT` | Impresión | Consume el tope de la pila y escribe su representación legible (traduciendo booleanos a `NITO` y `NO_NITO`). |
+| `IMPORT_FFI` | Vinculación Externa | Importa librerías dinámicas y módulos nativos de Python. |
+| `POP_TOP` | Limpieza de Pila | Retira y descarta el tope de la pila. Previene fugas de memoria (*stack leaks*) al evaluar expresiones independientes. |
+| `GET_PROPERTY` | Acceso Seguro | Recupera un atributo o propiedad de forma segura. Si el receptor es nulo o no tiene la propiedad, propaga un estado cuántico. |
 
 ---
 
-## 3. Tolerancia a Fallos: Autohealing en Tres Niveles
+## 3. Tolerancia a Fallos y Robustez
 
 NitoScript está diseñado para no interrumpir su ejecución frente a imperfecciones sintácticas o semánticas leves, aplicando auto-recuperación recursiva:
 
@@ -96,27 +100,67 @@ NitoScript está diseñado para no interrumpir su ejecución frente a imperfecci
 ```
 
 ### 3.1. Nivel Léxico: Levenshtein Keyword Healing
-Cuando el analizador léxico procesa un identificador desconocido que difiere ligeramente de una palabra clave reservada, calcula la distancia de edición Levenshtein:
-
-$$\text{dist}(s_1, s_2)$$
-
-Si la distancia es menor o igual a un umbral adaptativo ($\le 2$ para palabras de longitud mayor o igual a 6 letras, y $\le 1$ para palabras cortas), el lexer asume el error de escritura y emite un token corregido junto con una advertencia en el canal de diagnóstico.
-
-*   *Ejemplo:* `nitosexs` o `nitosegs` se reconcilian automáticamente con `nitosegs` (declaración de funciones) o `nitosexo` (declaración de constantes).
+Cuando el analizador léxico procesa un identificador desconocido que difiere ligeramente de una palabra clave reservada, calcula la distancia de edición Levenshtein. Si es menor o igual a un umbral adaptativo ($\le 2$ para palabras de longitud $\ge 6$, y $\le 1$ para cortas), el lexer corrige automáticamente el token.
+*   *Ejemplo:* `nitosexs` o `nitosegs` se reconcilian con `nitosegs` (funciones) o `nitosexo` (constantes).
 
 ### 3.2. Nivel Sintáctico: Grammar Repair y Placeholders
 El analizador sintáctico realiza correcciones estructurales al construir el AST:
-*   **Supresión de Operadores Redundantes:** Expresiones con operadores duplicados fortuitos (como `a + * b`) son simplificadas a su operador primario binario (`a + b`), descartando las anomalías del flujo de tokens.
-*   **Inyección de Placeholders en Flujos Incompletos:** Si un bloque o expresión binaria carece de un operando terminal (por ejemplo, `nito x = 5 +`), el parser inyecta un literal neutro compatible (un entero `0` o una cadena vacía `""`) para evitar el colapso del árbol sintáctico.
+*   **Supresión de Operadores Redundantes:** Expresiones con operadores duplicados fortuitos (como `a + * b`) son simplificadas a su operador primario binario (`a + b`).
+*   **Inyección de Placeholders en Flujos Incompletos:** Si un bloque o expresión binaria carece de un operando terminal (por ejemplo, `nito x = 5 +`), el parser inyecta un literal neutro compatible (`0` o `""`) para evitar el colapso del árbol sintáctico.
 
-### 3.3. Nivel de Ejecución: Fallback Heurístico
+### 3.3. Nivel de Ejecución: Fallback Heurístico (Inteligencia Propia)
 Si la sintaxis está severamente dañada y el parser formal no logra generar un AST válido, entra en acción un motor de análisis alternativo basado en reconocimiento de patrones e inferencia de intenciones lógicas:
-*   **Resolución de Asignaciones Invertidas:** Estructuras expresadas en orden no tradicional (como `"100 es nito miVariable"`) son parseadas correctamente mediante reestructuración de variables.
-*   **Resolución Dinámica de Expresiones:** Se interpretan y evalúan dinámicamente bloques aritméticos contextuales y variables del entorno local actual, delegando la ejecución a un evaluador matemático seguro integrado.
+*   **Resolución de Asignaciones Invertidas:** Estructuras no tradicionales como `"100 es nito miVariable"` se parsean mediante reestructuración dinámica.
+*   **Límites de Seguridad (v0.1.1):** Se implementó un control estricto de recursividad máxima en el analizador de fallback para evitar el desbordamiento físico del hilo ante entradas masivas de sintaxis destructiva.
 
 ---
 
-## 4. Foreign Function Interface (FFI)
+## 4. QuantumNito (v0.1.2): Schrödinger's Schema & Dot-Navigation
+
+> [!IMPORTANT]
+> **QuantumNito** es el mayor diferencial (selling point) de NitoScript v0.1.2. Se trata de un mecanismo nativo de programación cuántica adaptado para la mitigación del problema clásico de excepciones de puntero nulo (`NullPointerException`, `AttributeError`) al navegar por estructuras jerárquicas dinámicas complejas.
+
+### 4.1. El Concepto Filosófico y Técnico
+En entornos de ejecución dinámicos tradicionales (como JavaScript o Python), navegar por un árbol de datos anidado con sintaxis de punto como `payload.user.profile.avatar` resulta en un colapso del hilo (`TypeError` o `AttributeError`) si alguna de las propiedades intermedias es nula o indefinida.
+
+`QuantumNito` introduce la **superposición estructural**. Cuando un valor es envuelto a través de `QuantumNito(...)`, entra en un estado cuántico. Al acceder a sus propiedades anidadas usando sintaxis de punto:
+1. El compilador genera instrucciones de lectura segura `GET_PROPERTY`.
+2. Si una propiedad intermedia no existe o es nula, la VM **no colapsa ni lanza excepciones**. En su lugar, el sistema propaga perezosamente un estado de superposición nula (`QuantumNito(Null)`).
+3. La "función de onda" del objeto no colapsa hasta que la variable es evaluada bajo un contexto relacional, booleano, o se utiliza el operador de fusión/coalescencia `nito_o`.
+
+```
+[Estructura Cuántica: payload]
+        │
+        ├──► user (No Existe) ──► Retorna QuantumNito(Null)
+        │                             │
+        │                             ▼
+        ├──► profile (Ignorado) ──► Retorna QuantumNito(Null)
+        │                             │
+        │                             ▼
+        └──► avatar (Ignorado) ───► Retorna QuantumNito(Null)
+                                      │
+                                      ├──► Colapso con `nito_o` ──► "default.png"
+                                      └──► Colapso en Comparación ──► None (Seguro)
+```
+
+### 4.2. Ejemplo de Schrödinger's Schema
+A continuación se ilustra cómo navegar con seguridad por un payload JSON simulado que puede o no contener el avatar de un usuario:
+
+```nito
+# Caso 1: Payload completo (con avatar)
+nito payload1 = QuantumNito(crear_payload(NITO))
+nito avatar_url1 = payload1.user.profile.avatar nito_o "default.png"
+nito_imprimir(avatar_url1) # Imprime "avatar_premium.png"
+
+# Caso 2: Payload parcial (el campo 'user' está vacío)
+nito payload2 = QuantumNito(crear_payload(NO_NITO))
+nito avatar_url2 = payload2.user.profile.avatar nito_o "default.png"
+nito_imprimir(avatar_url2) # Imprime "default.png" (Seguro, sin fallar)
+```
+
+---
+
+## 5. Foreign Function Interface (FFI)
 
 NitoScript permite extender sus capacidades de forma nativa a través del sistema de enlazado dinámico `nito_importar`. Mediante este mecanismo, funciones y módulos escritos en Python son mapeados directamente a objetos llamables dentro de la máquina virtual (`NitoNativeFunction`).
 
@@ -133,81 +177,98 @@ nito_imprimir("El seno de " + angulo + " es: " + resultado)
 
 ---
 
-## 5. NitoBlocks: IDE Visual de Conexión de Bloques
+## 6. NitoBlocks v0.1.2: Entorno Visual Premium, Fluidos de Energía y Taxonomía Intuitiva
 
 ![NitoBlocks Banner](assets/nitoblocks_banner.png)
 
-NitoBlocks es el entorno integrado de desarrollo visual diseñado para NitoScript. Su arquitectura web permite la creación y simulación de programas complejos (como flujos lógicos para bots de Discord y tareas automatizadas) mediante el ensamble de piezas visuales que imitan la mecánica de conexión de bloques LEGO:
+NitoBlocks evoluciona en la versión **v0.1.2** hacia un estándar visual de nivel AAA, ofreciendo un entorno de programación visual extremadamente inmersivo y altamente intuitivo para desarrolladores de todos los niveles:
 
-*   **Pila de Indentación Visual:** Control estricto de ámbitos locales y bloques mediante el conector finalizador `🛑 Fin de Bloque`.
-*   **Generador Automático de Código:** Traduce en tiempo real el lienzo de bloques a código NitoScript estructurado de forma elegante.
-*   **Simulador Web Incorporado:** Ejecuta la lógica del programa directamente en el navegador, permitiendo depurar variables, flujos lógicos y rastrear avisos del compilador o advertencias de autohealing en una consola interactiva integrada.
+### 6.1. Rediseño Estético Lavender & Soft Pastel Blue Glassmorphic
+La interfaz visual de NitoBlocks ha sido completamente renovada bajo un sofisticado y limpio diseño de cristal esmerilado que se alinea fielmente con los assets y banners de la marca oficial:
+*   **Cristal Esmerilado (Light/Frosted Glass)**: Paneles y tarjetas translúcidas de cristal claro con un desenfoque de fondo premium (`backdrop-filter: blur(25px)`) y bordes estilizados en tonalidades lavanda.
+*   **Relieves y Brillos Fieles**: Los bloques LEGO visuales respetan las proporciones tridimensionales y studs circulares de los banners oficiales, simulando la refracción física de la luz sobre plástico translúcido.
+*   **Consola y Scope Explorer Integrados**: Editores de código que contrastan de forma elegante en un fondo azul índigo de medianoche, acompañados de una consola en color cian fósforo reactivo (`#81ecec`) y un explorador que ilumina los tipos de datos del scope léxico.
+
+### 6.2. Analizador Estático de Flujo Visual (Luminescent Energy Wires)
+Se incorporó un motor de análisis estático en tiempo real que emula un sistema de energía fluyendo a través de los bloques. Dependiendo de la coherencia lógica de las conexiones, el hilo de energía adopta comportamientos de fluido sutiles y no repetitivos:
+*   🌊 **Perfect Flow (`flow-perfect`)**: Una onda cian y violeta neón que fluye con un ritmo orgánico lento y relajante ("chill"), indicando un camino de ejecución saludable.
+*   ⚠️ **Unassigned Parameter (`flow-warning`)**: Un fluido de ondas turbulentas lentas de color ámbar y naranja que advierte de campos de entrada vacíos o de bloques de cierre (`🛑 Fin de Bloque`) huérfanos.
+*   🚨 **Scope Leak & Overflow (`flow-overflow`)**: Si declaras un condicional (`nito_si`) pero omites el bloque de cierre, el sistema inunda visualmente el bloque y todos los posteriores con un resplandor ambiental púrpura y ámbar pulsante, mostrando la fuga del ámbito.
+*   ⚡ **Heresy Detection (`flow-error`)**: Si el analizador detecta estáticamente una violación del Axioma de Supremacía (como `Nito - Nito` o `Nito * 0`), el bloque gotea intensamente en color carmesí de alta frecuencia, advirtiendo de un crash inminente.
+
+### 6.3. Taxonomía de Metáforas para No-Programadores
+Para eliminar la barrera de la jerga técnica, el editor visual sustituye los términos intimidantes de la programación de sistemas por analogías cotidianas y de juegos:
+*   📦 **Cajas de Regalo (Variables)**: Para almacenar información de forma etiquetada (`Guardar [Valor] en la Caja llamada [Nombre]`).
+*   🍳 **Recetas e Habilidades (Funciones)**: Conjunto de instrucciones que toman ingredientes (requisitos) y producen/retornan un resultado final.
+*   📁 **Carpetas Archivadoras (JSON / Objects)**: Estructuras que contienen fichas con etiquetas descriptivas para acceder a campos opcionales del FFI.
+*   🔮 **Cajas Misteriosas (QuantumNito)**: Envolturas cuánticas seguras que permiten buscar propiedades profundas de forma perezosa sin temor a colapsos de hilo, garantizando un respaldo infalible mediante el bloque "Por si acaso" (`nito_o`).
+
+### 6.4. Integración con el Servidor API Backend Real (`server.py`)
+NitoBlocks cuenta con un backend HTTP multipropósito en Python (puerto 8085) que sirve la aplicación web y expone un endpoint seguro (`/api/run`). Al presionar "Ejecutar Bloques", la pila se compila topológicamente, se traduce a NitoScript, y es ejecutada por la máquina virtual nativa de `nito.py` en un sandbox, retornando los resultados reales e historiales a la consola web.
+
+### 6.5. LEGO Audio Snaps
+La aplicación hace uso de la Web Audio API para emitir un satisfactorio sonido físico (Snap!) tridimensional sintetizado en tiempo real cuando los bloques se encajan en el lienzo.
 
 ---
 
-## 6. Ejemplos de Programación
+## 7. Ejemplo Completo de Programación
 
-### 6.1. Simulación de un Bot de Discord en NitoScript
-A continuación se ilustra la implementación de un bot de Discord modular que gestiona comandos de eventos y aplica el axioma de superioridad de Nito:
+### 7.1. Simulación de un Bot de Discord Cuántico en NitoScript
+Este script ilustra un Bot de Discord que recupera información de usuarios de forma totalmente segura a través del FFI y aplica el axioma de supremacía de Nito:
 
 ```nito
-# Simulación de eventos de Discord a través del FFI
 nito_importar random.randint
 
-# Definición del evento de llegada del comando
-nitosegs procesarComando(comando, usuario) {
-    nito_imprimir("Procesando comando: " + comando + " enviado por " + usuario)
+nitosegs procesarMensaje(evento) {
+    nito_imprimir("Mensaje entrante...")
     
-    nito_si (comando == "nivel_de_poder") entonces {
-        # Evaluando poder de un usuario normal vs Nito
-        nito nivel = 9999
-        nito_si (usuario == "Nito") entonces {
-            # Nito es siempre superior a cualquier límite finito
-            nivel = Nito
-        }
-        
-        nito_imprimir("Nivel del usuario " + usuario + " es: " + nivel)
-        nito_retorna nivel
+    # Envolver el evento en QuantumNito para evitar excepciones por campos nulos
+    nito q_evento = QuantumNito(evento)
+    
+    # Navegación ultra-segura por campos opcionales del autor del mensaje
+    nito autor_nombre = q_evento.author.username nito_o "Invitado"
+    nito es_premium = q_evento.author.subscription.is_active nito_o NO_NITO
+    
+    nito_imprimir("Usuario: " + autor_nombre + " | Premium: " + es_premium)
+    
+    # Comprobar el axioma supremo con el autor
+    nito_si (autor_nombre == "Nito") entonces {
+        nito_imprimir("Nito ha ingresado. Nivel de poder: " + Nito)
     }
-    
-    nito_si (comando == "tirar_dado") entonces {
-        nito resultado = randint(1, 6)
-        nito_imprimir("Dado arrojado: " + resultado)
-        nito_retorna resultado
-    }
-    
-    nito_retorna NO_NITO
 }
-
-# Ejecución de prueba
-procesarComando("nivel_de_poder", "UsuarioComun")
-procesarComando("nivel_de_poder", "Nito")
-procesarComando("tirar_dado", "Nito")
 ```
 
 ---
 
-## 7. Instrucciones de Instalación y Uso
+## 8. Instrucciones de Instalación y Uso
 
-### 7.1. Requisitos del Sistema
-NitoScript requiere Python 3.8 o superior para ejecutar su máquina virtual, compilador e intérprete interactivo.
+### 8.1. Requisitos del Sistema
+NitoScript requiere Python 3.8 o superior para ejecutar su máquina virtual, compilador e intérprete.
 
-### 7.2. Ejecución de un Archivo de Código
+### 8.2. Iniciar el Servidor del IDE NitoBlocks
+Para ejecutar el entorno visual de NitoBlocks con ejecución real en el backend:
+
+```bash
+python3 server.py
+```
+Abre tu navegador en `http://localhost:8085` para interactuar con el IDE visual premium.
+
+### 8.3. Ejecución de un Archivo de Código por Consola
 Para compilar y ejecutar un archivo fuente `.nito`:
 
 ```bash
 python3 nito.py ruta/del/archivo.nito
 ```
 
-### 7.3. Consola Interactiva (REPL)
-Para iniciar el entorno interactivo de NitoScript:
+### 8.4. Consola Interactiva (REPL)
+Para iniciar la shell de comandos interactiva de NitoScript:
 
 ```bash
 python3 nito.py
 ```
 
-### 7.4. Suite de Pruebas Unitarias
-NitoScript cuenta con una suite completa de pruebas unitarias que validan la Máquina Virtual, el Lexer Levenshtein, el Parser Tolerante a Fallos, las reglas de Herejía y el subsistema FFI. Para correr la suite de verificación localmente:
+### 8.5. Suite de Pruebas Unitarias
+NitoScript cuenta con una suite de 13 pruebas unitarias exhaustivas que validan la Máquina Virtual, el Lexer Levenshtein, el Parser Tolerante a Fallos, las reglas de Herejía, los Cierres Léxicos, la Limpieza de Pila y el motor de **QuantumNito**. Para correr la suite de verificación localmente:
 
 ```bash
 python3 run_tests.py
@@ -220,3 +281,4 @@ python3 run_tests.py
 Este proyecto está bajo la Licencia MIT. Para obtener más detalles, consulte el archivo [LICENSE](file:///home/ubuntu/nitoscript/LICENSE).
 
 Copyright &copy; 2026 ArisRhiannon
+

@@ -190,6 +190,11 @@ document.addEventListener('DOMContentLoaded', () => {
         block.setAttribute('data-type', type);
         block.draggable = true;
 
+        // Dynamic Flow Energy Ribbon for Static Analysis
+        const ribbon = document.createElement('div');
+        ribbon.className = 'block-flow-ribbon';
+        block.appendChild(ribbon);
+
         // LEGO Studs
         const studs = document.createElement('div');
         studs.className = 'block-studs';
@@ -343,7 +348,101 @@ document.addEventListener('DOMContentLoaded', () => {
         });
 
         generatedCode.innerText = codeLines.join('\n');
+        
+        // Ejecutar analizador estático de flujos y fluidos visuales
+        analyzeVisualFlow(blocks);
     }
+
+    // ==============================================================================
+    // STATIC FLOW ANALYZER (PRE-EXECUTION CHILL FLUIDS & ERROR DETECTION)
+    // ==============================================================================
+    function analyzeVisualFlow(blocks) {
+        let openScopesStack = [];
+        let heresyPatterns = [
+            /nito\s*-\s*nito/i,
+            /nito\s*\*\s*0/i,
+            /nito\s*\*\s*-\d+/i,
+            /nito\s*\/\s*0/i,
+            /nito\s*\/\s*-\d+/i,
+            /nito\s*<\s*/i
+        ];
+
+        // 1. Limpiar clases previas de flujos y asegurar la existencia del ribbon
+        blocks.forEach(block => {
+            block.classList.remove('flow-perfect', 'flow-warning', 'flow-error', 'flow-overflow');
+            if (!block.querySelector('.block-flow-ribbon')) {
+                const ribbon = document.createElement('div');
+                ribbon.className = 'block-flow-ribbon';
+                block.appendChild(ribbon);
+            }
+            block.removeAttribute('title'); // Limpiar tooltip previo
+        });
+
+        // 2. Análisis secuencial paso a paso (Estilo AST Simplificado)
+        blocks.forEach((block, index) => {
+            const type = block.getAttribute('data-type');
+            const input = block.querySelector('.block-input');
+            const value = input ? input.value : "";
+
+            let status = 'perfect'; // perfect, warning, error, overflow
+
+            // A. Detección de Parámetro Vacío (Advertencia de Flujo)
+            if (input && value.trim() === "") {
+                status = 'warning';
+                block.title = "Flujo Incompleto: El bloque requiere un parámetro de entrada.";
+            }
+
+            // B. Detección Estática de Herejías (Errores Críticos)
+            if (input && status !== 'error') {
+                for (let pattern of heresyPatterns) {
+                    if (pattern.test(value)) {
+                        status = 'error';
+                        block.title = "⚠️ ¡HEREJÍA ESTÁTICA DETECTADA!\nEsta operación viola las leyes divinas de Nito y causará un SupremeViolationError fatal al ejecutar.";
+                        break;
+                    }
+                }
+            }
+
+            // C. Registro y validación de ámbitos y sangrías
+            if (type === 'discord_event' || type === 'nito_si') {
+                openScopesStack.push({ type: type, block: block, index: index });
+            } else if (type === 'fin_de_bloque') {
+                if (openScopesStack.length > 0) {
+                    openScopesStack.pop();
+                } else {
+                    // Cierre de bloque suelto (Dedent sin indentación)
+                    if (status !== 'error') {
+                        status = 'warning';
+                        block.title = "Advertencia de Ámbito: Fin de bloque huérfano (no hay ninguna condición que cerrar aquí).";
+                    }
+                }
+            }
+
+            // D. Aplicar estilo visual correspondiente al nodo actual
+            if (status === 'error') {
+                block.classList.add('flow-error');
+            } else if (status === 'warning') {
+                block.classList.add('flow-warning');
+            } else {
+                block.classList.add('flow-perfect');
+            }
+        });
+
+        // E. Control de Fugas de Ámbito (Scope Leaks) - CASO EXTREMO
+        if (openScopesStack.length > 0) {
+            // El último bloque abierto sin cerrar es el culpable de la fuga
+            const culprit = openScopesStack[openScopesStack.length - 1];
+            
+            // Inundar visualmente desde el bloque culpable hasta el final del lienzo
+            for (let i = culprit.index; i < blocks.length; i++) {
+                const b = blocks[i];
+                b.classList.remove('flow-perfect', 'flow-warning');
+                b.classList.add('flow-overflow');
+                b.title = "🚨 FUGA DE ÁMBITO (Scope Leak):\nFalta un bloque '🛑 Fin de Bloque' para cerrar esta condición. Todos los bloques posteriores se desbordarán involuntariamente dentro de este ámbito.";
+            }
+        }
+    }
+
 
     // --------------------------------------------------------------------------
     // 3. RUNTIME SIMULATOR & REAL VM BACKEND (v0.1.1)

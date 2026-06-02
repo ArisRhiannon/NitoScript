@@ -1,9 +1,9 @@
 /* ==============================================================================
-   NITOBLOCKS DESIGN SYSTEM - PREMIUM GLASSMORPHISM (VANILLA CSS)
+   NITOBLOCKS DESIGN SYSTEM - OFFICIAL LAVENDER & PASTEL BLUE GLASSMORPHISM
    ============================================================================== */
 
 :root {
-    /* Palette: Lavender & Soft Pastel Blue (from official design assets) */
+    /* Palette: Lavender & Soft Pastel Blue (faithful to official design assets) */
     --bg-gradient: linear-gradient(135deg, #f5f7ff 0%, #eef1fc 50%, #e2e8fd 100%);
     --bg-glass-light: rgba(255, 255, 255, 0.55);
     --bg-glass-hover: rgba(255, 255, 255, 0.75);
@@ -17,7 +17,7 @@
     --text-secondary: #5e668c;
     --text-muted: #8c95bf;
     
-    /* Lego Glass Category Colors */
+    /* LEGO Translucent Neon Category Colors */
     --color-event: rgba(162, 155, 254, 0.35);
     --color-event-border: #6c5ce7;
     --color-event-text: #3c32a3;
@@ -68,7 +68,7 @@ body {
 .app-header {
     background: rgba(255, 255, 255, 0.4);
     border-bottom: 1px solid var(--border-color);
-    padding: 18px 40px;
+    padding: 16px 40px;
     display: flex;
     justify-content: space-between;
     align-items: center;
@@ -83,7 +83,7 @@ body {
 }
 
 .logo-area h1 {
-    font-size: 26px;
+    font-size: 25px;
     font-weight: 800;
     letter-spacing: -0.7px;
     display: flex;
@@ -93,7 +93,7 @@ body {
 }
 
 .logo-icon {
-    font-size: 28px;
+    font-size: 26px;
     animation: floating 4s infinite ease-in-out;
 }
 
@@ -109,7 +109,7 @@ body {
 }
 
 .subtitle {
-    font-size: 12.5px;
+    font-size: 12px;
     color: var(--text-secondary);
     margin-top: 3px;
     font-weight: 400;
@@ -123,7 +123,7 @@ body {
 
 .btn {
     font-family: var(--font-sans);
-    font-size: 13.5px;
+    font-size: 13px;
     font-weight: 600;
     padding: 10px 22px;
     border: 1px solid rgba(255, 255, 255, 0.4);
@@ -164,7 +164,7 @@ body {
 .app-container {
     flex: 1;
     display: grid;
-    grid-template-columns: 310px 1fr 410px;
+    grid-template-columns: 320px 1fr 440px;
     overflow: hidden;
 }
 
@@ -186,7 +186,7 @@ body {
 }
 
 .panel-desc {
-    font-size: 12.5px;
+    font-size: 12px;
     color: var(--text-secondary);
     margin-bottom: 25px;
     line-height: 1.4;
@@ -197,7 +197,7 @@ body {
 }
 
 .block-category h3 {
-    font-size: 11px;
+    font-size: 10.5px;
     font-weight: 800;
     text-transform: uppercase;
     color: var(--text-muted);
@@ -252,7 +252,7 @@ body {
 }
 
 .block-content {
-    padding: 14px 20px;
+    padding: 13px 20px;
     font-weight: 600;
     font-size: 13.5px;
     display: flex;
@@ -284,7 +284,7 @@ body {
     box-shadow: 0 0 0 3px rgba(108, 92, 231, 0.1);
 }
 
-/* Block Category Mappings */
+/* Block Category Mappings (Original Lavender style, extremely elegant) */
 .event-block {
     background: var(--color-event);
     border-left: 5px solid var(--color-event-border);
@@ -355,7 +355,7 @@ body {
 }
 
 .instruction-tip {
-    font-size: 12.5px;
+    font-size: 12px;
     color: var(--text-secondary);
     margin-top: 2px;
 }
@@ -421,7 +421,7 @@ body {
 }
 
 .empty-state p {
-    font-size: 12.5px;
+    font-size: 12px;
     margin-top: 6px;
     color: var(--text-secondary);
 }
@@ -432,7 +432,7 @@ body {
     width: 100%;
     max-width: 500px;
     margin-bottom: 0;
-    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.04);
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.05), inset 0 1px 0 rgba(255, 255, 255, 0.6);
 }
 
 /* Active Execution Highlight (Step by step running) */
@@ -453,7 +453,7 @@ body {
     pointer-events: none;
 }
 
-/* Right Panel - Output Code and Console */
+/* Right Panel - Output Code and Console (Frosted Midnight Blue Editors) */
 .output-panel {
     background: var(--bg-panel);
     display: grid;
@@ -476,7 +476,7 @@ body {
 }
 
 .code-viewer h3, .variables-viewer h3, .console-viewer h3 {
-    font-size: 11px;
+    font-size: 10.5px;
     font-weight: 800;
     text-transform: uppercase;
     color: var(--text-muted);
@@ -486,8 +486,8 @@ body {
 
 .code-viewer pre {
     flex: 1;
-    background: #1e1e2e; /* Tokyo Night/Catppuccin Dark Editor style */
-    border: 1px solid rgba(0, 0, 0, 0.15);
+    background: #141726; /* Highly elegant deep midnight Indigo */
+    border: 1px solid rgba(255, 255, 255, 0.1);
     border-radius: 14px;
     padding: 18px;
     overflow: auto;
@@ -498,51 +498,55 @@ body {
     box-shadow: 0 8px 24px rgba(0, 0, 0, 0.1);
 }
 
-/* Refined Dark Console */
+/* Refined Dark Indigo Console with Cyan Phosphor Glow */
 .console-screen {
     flex: 1;
-    background: #181825;
-    border: 1px solid rgba(0, 0, 0, 0.15);
+    background: #0d0f1a;
+    border: 1px solid rgba(255, 255, 255, 0.08);
     border-radius: 14px;
     padding: 18px;
     overflow-y: auto;
     font-family: var(--font-mono);
     font-size: 12.5px;
-    color: #a6e3a1; /* Catppuccin Green */
-    box-shadow: inset 0 2px 8px rgba(0, 0, 0, 0.3), 0 8px 24px rgba(0, 0, 0, 0.1);
+    color: #81ecec; /* Electric Cyan */
+    box-shadow: inset 0 2px 8px rgba(0, 0, 0, 0.3), 0 8px 24px rgba(0, 0, 0, 0.05);
     display: flex;
     flex-direction: column;
     gap: 6px;
 }
 
 .console-placeholder {
-    color: #6c7086;
+    color: #565f89;
     font-style: italic;
 }
 
 .console-line {
     white-space: pre-wrap;
     line-height: 1.4;
+    text-shadow: 0 0 3px rgba(129, 236, 236, 0.3);
 }
 
 .console-warn {
-    color: #f9e2af; /* Warning Yellow */
+    color: #ffd166; /* Warning Yellow */
+    text-shadow: 0 0 3px rgba(255, 209, 102, 0.3);
 }
 
 .console-err {
-    color: #f38ba8; /* Heresy Red */
+    color: #ff7675; /* Heresy Red */
     font-weight: 600;
+    text-shadow: 0 0 4px rgba(255, 118, 117, 0.4);
 }
 
 .console-info {
-    color: #89b4fa; /* Info Blue */
+    color: #a29bfe; /* Info Purple */
+    text-shadow: 0 0 3px rgba(162, 155, 254, 0.3);
 }
 
 .remove-block-btn {
     transition: color 0.2s ease, transform 0.2s ease;
 }
 .remove-block-btn:hover {
-    color: #f38ba8 !important;
+    color: #ff7675 !important;
     transform: scale(1.2);
 }
 
@@ -552,7 +556,7 @@ body {
     border-top: 1px solid var(--border-color);
     padding: 12px 40px;
     text-align: center;
-    font-size: 11.5px;
+    font-size: 11px;
     color: var(--text-secondary);
     backdrop-filter: blur(20px);
 }
@@ -582,7 +586,7 @@ body {
 
 /* Drag and Drop Snap Animations & Placeholders */
 .block-placeholder {
-    height: 54px;
+    height: 52px;
     width: 100%;
     max-width: 500px;
     background: rgba(108, 92, 231, 0.05);
@@ -599,48 +603,48 @@ body {
 }
 
 @keyframes snapBounce {
-    0% { transform: scale(0.9) translateY(-12px); opacity: 0; }
-    60% { transform: scale(1.03) translateY(2px); }
+    0% { transform: scale(0.95) translateY(-10px); opacity: 0; }
+    60% { transform: scale(1.025) translateY(1.5px); }
     100% { transform: scale(1) translateY(0); opacity: 1; }
 }
 
 .lego-block.snap-animation {
-    animation: snapBounce 0.35s cubic-bezier(0.25, 1, 0.5, 1);
+    animation: snapBounce 0.3s cubic-bezier(0.25, 1, 0.5, 1);
 }
 
 /* Runtime Variables Explorer Table Styling */
 .variables-table-wrapper {
     flex: 1;
-    background: #181825;
-    border: 1px solid rgba(0, 0, 0, 0.15);
+    background: #0d0f1a;
+    border: 1px solid rgba(255, 255, 255, 0.08);
     border-radius: 14px;
     padding: 12px;
     overflow-y: auto;
-    box-shadow: inset 0 2px 8px rgba(0, 0, 0, 0.3), 0 8px 24px rgba(0, 0, 0, 0.1);
+    box-shadow: inset 0 2px 8px rgba(0, 0, 0, 0.3), 0 8px 24px rgba(0, 0, 0, 0.05);
 }
 
 #variables-table {
     width: 100%;
     border-collapse: collapse;
     font-family: var(--font-mono);
-    font-size: 12px;
+    font-size: 11.5px;
     text-align: left;
 }
 
 #variables-table th {
     color: var(--text-muted);
     font-weight: 800;
-    font-size: 10px;
+    font-size: 9.5px;
     text-transform: uppercase;
-    letter-spacing: 0.8px;
+    letter-spacing: 1px;
     padding: 6px 10px;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
 }
 
 #variables-table td {
     padding: 8px 10px;
     color: #c0caf5;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.03);
 }
 
 #variables-table tr:last-child td {
@@ -648,7 +652,7 @@ body {
 }
 
 .no-variables {
-    color: #6c7086 !important;
+    color: #565f89 !important;
     font-style: italic;
     text-align: center;
     padding: 20px !important;
@@ -656,6 +660,108 @@ body {
 
 /* Colors for data types in scope explorer */
 .type-nito { color: #fdcb6e !important; font-weight: bold; }
-.type-string { color: #a6e3a1 !important; }
-.type-number { color: #f9e2af !important; }
-.type-boolean { color: #89b4fa !important; }
+.type-string { color: #81ecec !important; }
+.type-number { color: #ffd166 !important; }
+.type-boolean { color: #a29bfe !important; }
+
+/* ==============================================================================
+   NITOBLOCKS FLUID FLOW ANALYZER & STATIC VISUAL ENERGY WIRES (LAVENDER OPTIMIZED)
+   ============================================================================== */
+
+/* Luminescent Flow Ribbon (The organic energy line on the left side of cards) */
+.block-flow-ribbon {
+    position: absolute;
+    left: 0;
+    top: 0;
+    bottom: 0;
+    width: 6px;
+    border-radius: 12px 0 0 12px;
+    pointer-events: none;
+    overflow: hidden;
+    z-index: 10;
+}
+
+.block-flow-ribbon::after {
+    content: '';
+    position: absolute;
+    top: -100%;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    opacity: 0;
+    transition: opacity 0.5s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+/* 1. Perfect Connected Flow: A slow, "chill", fluid energy wave flowing down */
+.lego-block.flow-perfect {
+    border-color: rgba(108, 92, 231, 0.3);
+}
+.lego-block.flow-perfect .block-flow-ribbon::after {
+    opacity: 1;
+    background: linear-gradient(to bottom, transparent, #81ecec, #6c5ce7 50%, #0984e3, transparent);
+    animation: flowFluidChill 4.5s infinite linear;
+}
+
+/* 2. Unassigned Parameter Flow: Amber/Gold turbulent waves */
+.lego-block.flow-warning {
+    border-color: rgba(253, 203, 110, 0.6);
+}
+.lego-block.flow-warning .block-flow-ribbon::after {
+    opacity: 1;
+    background: linear-gradient(to bottom, transparent, #ffeaa7, #fdcb6e 50%, #e17055, transparent);
+    animation: flowFluidTurbulent 2s infinite ease-in-out;
+}
+
+/* 3. Imminent Heresy / Critical Error Flow: Fast, high-voltage dripping red warnings */
+.lego-block.flow-error {
+    border-color: rgba(255, 118, 117, 0.8);
+    box-shadow: 0 0 15px rgba(255, 118, 117, 0.35), var(--shadow-block);
+}
+.lego-block.flow-error .block-flow-ribbon::after {
+    opacity: 1;
+    background: linear-gradient(to bottom, transparent, #ff7675, #d63031 50%, #a8201a, transparent);
+    animation: flowFluidError 0.9s infinite linear;
+}
+
+/* 4. Missing Dedent / Scope Overflow: A bleeding hot-pink/amber ambient haze */
+.lego-block.flow-overflow {
+    border-color: rgba(255, 118, 117, 0.6);
+    animation: bleedingHaze 2.5s infinite alternate ease-in-out;
+}
+.lego-block.flow-overflow .block-flow-ribbon::after {
+    opacity: 1;
+    background: linear-gradient(to bottom, transparent, #fdcb6e, #ff7675 50%, #6c5ce7, transparent);
+    animation: flowFluidTurbulent 3.2s infinite linear;
+}
+
+/* Flow Keyframe Animations */
+@keyframes flowFluidChill {
+    0% { top: -100%; }
+    100% { top: 100%; }
+}
+
+@keyframes flowFluidTurbulent {
+    0% { top: -100%; filter: hue-rotate(0deg); }
+    50% { top: 10%; filter: hue-rotate(15deg); }
+    100% { top: 100%; filter: hue-rotate(0deg); }
+}
+
+@keyframes flowFluidError {
+    0% { top: -100%; }
+    100% { top: 100%; }
+}
+
+@keyframes bleedingHaze {
+    0% { 
+        box-shadow: var(--shadow-block), 0 0 8px rgba(255, 118, 117, 0.2); 
+        transform: scale(1);
+    }
+    100% { 
+        box-shadow: var(--shadow-block), 0 0 20px rgba(255, 118, 117, 0.5); 
+        transform: scale(1.008);
+        border-color: rgba(255, 118, 117, 0.7);
+    }
+}
+
+
+
