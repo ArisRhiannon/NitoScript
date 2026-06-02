@@ -1142,26 +1142,55 @@ body {
     text-shadow: 0 1.5px 3px rgba(0, 0, 0, 0.35) !important;
 }
 
-.port span {
+.port span:not(.port-socket) {
     color: rgba(255, 255, 255, 0.95) !important;
     font-weight: 800 !important;
     font-size: 11px !important;
     text-shadow: 0 1.5px 3px rgba(0, 0, 0, 0.35) !important;
     pointer-events: none;
+    background: rgba(0, 0, 0, 0.3) !important;
+    padding: 3px 8px !important;
+    border-radius: 4px !important;
+    display: inline-block !important;
 }
 
-.supreme-block .port span {
+.supreme-block .port span:not(.port-socket) {
     color: #1d2138 !important;
     text-shadow: none !important;
+    background: none !important;
 }
 
 .block-label {
     color: #ffffff !important;
     font-weight: 800 !important;
     text-shadow: 0 1.5px 3px rgba(0, 0, 0, 0.35) !important;
+    background: rgba(0, 0, 0, 0.3) !important;
+    padding: 3px 8px !important;
+    border-radius: 4px !important;
+    display: inline-block !important;
 }
 
 .supreme-block .block-label {
+    color: #1d2138 !important;
+    text-shadow: none !important;
+    background: none !important;
+}
+
+/* Inner block input labels backing */
+.lego-block div > div > span,
+.block-template div > div > span {
+    background: rgba(0, 0, 0, 0.3) !important;
+    padding: 3px 8px !important;
+    border-radius: 4px !important;
+    display: inline-block !important;
+    color: #ffffff !important;
+    font-weight: 800 !important;
+    font-size: 11px !important;
+    text-shadow: 0 1.5px 3px rgba(0, 0, 0, 0.35) !important;
+}
+
+.supreme-block div > div > span {
+    background: none !important;
     color: #1d2138 !important;
     text-shadow: none !important;
 }
