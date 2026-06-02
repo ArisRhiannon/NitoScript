@@ -579,3 +579,31 @@ body {
     0% { opacity: 0.4; }
     100% { opacity: 0.9; }
 }
+
+/* Drag and Drop Snap Animations & Placeholders */
+.block-placeholder {
+    height: 54px;
+    width: 100%;
+    max-width: 500px;
+    background: rgba(108, 92, 231, 0.05);
+    border: 2px dashed rgba(108, 92, 231, 0.45);
+    border-radius: 12px;
+    box-shadow: none;
+    transition: all 0.2s ease;
+    animation: placeholderPulse 1.5s infinite alternate ease-in-out;
+}
+
+@keyframes placeholderPulse {
+    0% { border-color: rgba(108, 92, 231, 0.2); background: rgba(108, 92, 231, 0.02); }
+    100% { border-color: rgba(108, 92, 231, 0.6); background: rgba(108, 92, 231, 0.1); }
+}
+
+@keyframes snapBounce {
+    0% { transform: scale(0.9) translateY(-12px); opacity: 0; }
+    60% { transform: scale(1.03) translateY(2px); }
+    100% { transform: scale(1) translateY(0); opacity: 1; }
+}
+
+.lego-block.snap-animation {
+    animation: snapBounce 0.35s cubic-bezier(0.25, 1, 0.5, 1);
+}

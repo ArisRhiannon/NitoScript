@@ -1,6 +1,48 @@
 // ==============================================================================
-// NITOBLOCKS INTERACTION & INTERPRETER LOGIC
+// NITOBLOCKS INTERACTION & INTERPRETER LOGIC (WITH SATISFYING SNAP FX)
 // ==============================================================================
+
+// Synthesize a satisfying plastic LEGO snap/pop click in real-time
+function playSnapSound() {
+    try {
+        const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+        if (!AudioContextClass) return;
+        const ctx = new AudioContextClass();
+        
+        // 1. High frequency mechanical transient (the impact click)
+        const clickOsc = ctx.createOscillator();
+        const clickGain = ctx.createGain();
+        clickOsc.type = 'triangle';
+        clickOsc.frequency.setValueAtTime(900, ctx.currentTime);
+        clickOsc.frequency.exponentialRampToValueAtTime(100, ctx.currentTime + 0.04);
+        
+        clickGain.gain.setValueAtTime(0.08, ctx.currentTime);
+        clickGain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.04);
+        
+        // 2. Mid frequency plastic resonance (the hollow cavity pop)
+        const popOsc = ctx.createOscillator();
+        const popGain = ctx.createGain();
+        popOsc.type = 'sine';
+        popOsc.frequency.setValueAtTime(280, ctx.currentTime);
+        popOsc.frequency.exponentialRampToValueAtTime(80, ctx.currentTime + 0.09);
+        
+        popGain.gain.setValueAtTime(0.12, ctx.currentTime);
+        popGain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.09);
+        
+        // Connect both synth parts
+        clickOsc.connect(clickGain);
+        clickGain.connect(ctx.destination);
+        popOsc.connect(popGain);
+        popGain.connect(ctx.destination);
+        
+        clickOsc.start();
+        clickOsc.stop(ctx.currentTime + 0.04);
+        popOsc.start();
+        popOsc.stop(ctx.currentTime + 0.09);
+    } catch (e) {
+        // Ignored if browser security blocks audio contexts prior to interaction
+    }
+}
 
 document.addEventListener('DOMContentLoaded', () => {
     const workspace = document.getElementById('workspace');
@@ -15,15 +57,30 @@ document.addEventListener('DOMContentLoaded', () => {
     let draggedLabel = "";
 
     // --------------------------------------------------------------------------
-    // 1. DRAG AND DROP HANDLERS (LEGO SYSTEM)
+    // 1. DRAG AND DROP HANDLERS (MAGNETIC LEGO SYSTEM WITH AUDIOPHYSICAL FEEDBACK)
     // --------------------------------------------------------------------------
+
+    function getOrCreatePlaceholder() {
+        let placeholder = workspace.querySelector('.block-placeholder');
+        if (!placeholder) {
+            placeholder = document.createElement('div');
+            placeholder.className = 'block-placeholder';
+        }
+        return placeholder;
+    }
+
+    function removePlaceholder() {
+        const placeholder = workspace.querySelector('.block-placeholder');
+        if (placeholder) {
+            placeholder.remove();
+        }
+    }
 
     // Initialize templates in toolbox
     templates.forEach(template => {
         template.addEventListener('dragstart', (e) => {
             draggedBlockType = template.getAttribute('data-type');
             
-            // Capture current inputs
             const input = template.querySelector('.block-input');
             draggedInputVal = input ? input.value : "";
             draggedLabel = template.querySelector('.block-label').innerText;
@@ -34,11 +91,17 @@ document.addEventListener('DOMContentLoaded', () => {
 
         template.addEventListener('dragend', () => {
             template.classList.remove('dragging');
+            removePlaceholder();
         });
 
-        // Allow template creation on click as fallback
         template.addEventListener('click', () => {
-            createBlockInWorkspace(draggedBlockType || template.getAttribute('data-type'), draggedInputVal || (template.querySelector('.block-input') ? template.querySelector('.block-input').value : ""), template.querySelector('.block-label').innerText);
+            const block = createBlockInWorkspace(
+                draggedBlockType || template.getAttribute('data-type'), 
+                draggedInputVal || (template.querySelector('.block-input') ? template.querySelector('.block-input').value : ""), 
+                template.querySelector('.block-label').innerText
+            );
+            workspace.appendChild(block);
+            triggerSnapEffects(block);
             updateGeneratedCode();
         });
     });
@@ -46,10 +109,31 @@ document.addEventListener('DOMContentLoaded', () => {
     workspace.addEventListener('dragover', (e) => {
         e.preventDefault();
         workspace.classList.add('drag-over');
+        
+        // Interactive visual alignment target (Magnetic placeholder slot)
+        const placeholder = getOrCreatePlaceholder();
+        const afterElement = getDragAfterElement(workspace, e.clientY);
+        
+        // Hide empty state while drag is active
+        const emptyState = workspace.querySelector('.empty-state');
+        if (emptyState) emptyState.style.display = 'none';
+        
+        if (afterElement == null) {
+            workspace.appendChild(placeholder);
+        } else {
+            workspace.insertBefore(placeholder, afterElement);
+        }
     });
 
     workspace.addEventListener('dragleave', () => {
         workspace.classList.remove('drag-over');
+        // If workspace is physically empty, restore empty state
+        const blocks = workspace.querySelectorAll('.lego-block');
+        if (blocks.length === 0) {
+            const emptyState = workspace.querySelector('.empty-state');
+            if (emptyState) emptyState.style.display = 'block';
+            removePlaceholder();
+        }
     });
 
     workspace.addEventListener('drop', (e) => {
@@ -57,15 +141,45 @@ document.addEventListener('DOMContentLoaded', () => {
         workspace.classList.remove('drag-over');
         
         const type = e.dataTransfer.getData('text/plain');
+        const placeholder = workspace.querySelector('.block-placeholder');
+        
         if (type) {
-            createBlockInWorkspace(type, draggedInputVal, draggedLabel);
+            // Drop a new brick from the toolbox
+            const block = createBlockInWorkspace(type, draggedInputVal, draggedLabel);
+            if (placeholder) {
+                workspace.insertBefore(block, placeholder);
+            } else {
+                workspace.appendChild(block);
+            }
+            triggerSnapEffects(block);
             updateGeneratedCode();
+        } else {
+            // Drop an existing brick being reordered in workspace
+            const draggingBlock = workspace.querySelector('.dragging-workspace');
+            if (draggingBlock) {
+                if (placeholder) {
+                    workspace.insertBefore(draggingBlock, placeholder);
+                } else {
+                    workspace.appendChild(draggingBlock);
+                }
+                triggerSnapEffects(draggingBlock);
+                updateGeneratedCode();
+            }
         }
+        removePlaceholder();
+        checkWorkspaceEmpty();
     });
 
-    // Create and inject a brick into the workspace
+    function triggerSnapEffects(block) {
+        // Audio snap
+        playSnapSound();
+        // Visual snap bounce animation
+        block.classList.add('snap-animation');
+        setTimeout(() => block.classList.remove('snap-animation'), 450);
+    }
+
+    // Create and return a modular LEGO block structure
     function createBlockInWorkspace(type, defaultVal, labelText) {
-        // Remove empty state if present
         const emptyState = workspace.querySelector('.empty-state');
         if (emptyState) {
             emptyState.style.display = 'none';
@@ -109,10 +223,12 @@ document.addEventListener('DOMContentLoaded', () => {
         removeBtn.style.fontSize = '18px';
         removeBtn.style.marginLeft = 'auto';
         removeBtn.style.color = 'rgba(255,255,255,0.6)';
-        removeBtn.addEventListener('click', () => {
+        removeBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
             block.remove();
             checkWorkspaceEmpty();
             updateGeneratedCode();
+            playSnapSound(); // sound feedback on deletion
         });
         content.appendChild(removeBtn);
 
@@ -126,11 +242,11 @@ document.addEventListener('DOMContentLoaded', () => {
 
         block.addEventListener('dragend', () => {
             block.classList.remove('dragging-workspace');
+            removePlaceholder();
             updateGeneratedCode();
         });
 
-        workspace.appendChild(block);
-        setupReordering();
+        return block;
     }
 
     function getBlockColorClass(type) {
@@ -151,20 +267,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Set up dragging to reorder elements inside workspace
     function setupReordering() {
-        const blocks = [...workspace.querySelectorAll('.lego-block:not(.dragging)')];
-        
-        workspace.addEventListener('dragover', (e) => {
-            e.preventDefault();
-            const draggingBlock = workspace.querySelector('.dragging-workspace');
-            if (!draggingBlock) return;
-            
-            const afterElement = getDragAfterElement(workspace, e.clientY);
-            if (afterElement == null) {
-                workspace.appendChild(draggingBlock);
-            } else {
-                workspace.insertBefore(draggingBlock, afterElement);
-            }
-        });
+        // Handled directly inside dragover and drop events on the workspace
     }
 
     function getDragAfterElement(container, y) {
