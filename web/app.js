@@ -195,13 +195,31 @@ document.addEventListener('DOMContentLoaded', () => {
         // Duplicate Button
         const copyBtn = document.createElement('span');
         copyBtn.className = 'copy-block-btn';
-        copyBtn.innerHTML = '📋 ';
+        copyBtn.innerHTML = `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="vertical-align: middle; display: inline-block; opacity: 0.8; transition: opacity 0.2s, transform 0.2s;"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>`;
         copyBtn.style.cursor = 'pointer';
-        copyBtn.style.fontSize = '13px';
+        copyBtn.style.display = 'flex';
+        copyBtn.style.alignItems = 'center';
         copyBtn.style.marginLeft = 'auto';
-        copyBtn.style.marginRight = '8px';
+        copyBtn.style.marginRight = '10px';
         copyBtn.style.color = 'rgba(255, 255, 255, 0.75)';
+        copyBtn.style.transition = 'color 0.2s';
         copyBtn.title = "Duplicar bloque";
+        copyBtn.addEventListener('mouseenter', () => {
+            copyBtn.style.color = '#ffffff';
+            const svg = copyBtn.querySelector('svg');
+            if (svg) {
+                svg.style.opacity = '1';
+                svg.style.transform = 'scale(1.1)';
+            }
+        });
+        copyBtn.addEventListener('mouseleave', () => {
+            copyBtn.style.color = 'rgba(255, 255, 255, 0.75)';
+            const svg = copyBtn.querySelector('svg');
+            if (svg) {
+                svg.style.opacity = '0.8';
+                svg.style.transform = 'scale(1)';
+            }
+        });
         copyBtn.addEventListener('click', (e) => {
             e.stopPropagation();
             duplicateNode(nodeId);
