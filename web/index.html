@@ -48,14 +48,15 @@
     <main class="app-container">
         <!-- Toolbox (Left Pane - Reworked Nodes Library) -->
         <aside class="toolbox-panel">
-            <h2>🧩 Librería de Nodos</h2>
-            <p class="panel-desc">Arrastra nodos al lienzo o haz clic en ellos para instanciarlos.</p>
+            <h2>Librería de Nodos</h2>
+            <p class="panel-desc">Arrastra bloques LEGO al lienzo o haz clic en ellos para instanciarlos en tu programa.</p>
             
             <div class="block-category">
-                <h3>Eventos (Discord)</h3>
+                <h3>Eventos</h3>
                 <!-- Discord Event Block -->
                 <div class="block-template node-preview-card event-block" draggable="true" data-type="discord_event">
-                    <div class="mini-node-header">📩 Al Recibir Mensaje</div>
+                    <div class="block-studs"><span></span><span></span><span></span><span></span></div>
+                    <div class="mini-node-header">Al Recibir Mensaje</div>
                     <div class="mini-node-ports">
                         <div class="mini-ports-left"></div>
                         <div class="mini-ports-right">
@@ -65,12 +66,13 @@
                     </div>
                 </div>
             </div>
-
+ 
             <div class="block-category">
                 <h3>Lógica y Control</h3>
                 <!-- If Condition Block -->
                 <div class="block-template node-preview-card control-block" draggable="true" data-type="nito_si">
-                    <div class="mini-node-header">🔍 Si Condición</div>
+                    <div class="block-studs"><span></span><span></span><span></span><span></span></div>
+                    <div class="mini-node-header">Si Condición</div>
                     <div class="mini-node-ports">
                         <div class="mini-ports-left">
                             <span class="mini-port-dot flow-dot"></span>
@@ -82,13 +84,56 @@
                         </div>
                     </div>
                 </div>
+                <!-- Sino Si Condition Block -->
+                <div class="block-template node-preview-card control-block" draggable="true" data-type="nito_sino_si">
+                    <div class="block-studs"><span></span><span></span><span></span><span></span></div>
+                    <div class="mini-node-header">Sino Si Condición</div>
+                    <div class="mini-node-ports">
+                        <div class="mini-ports-left">
+                            <span class="mini-port-dot flow-dot"></span>
+                            <span class="mini-port-dot string-dot"></span>
+                        </div>
+                        <div class="mini-ports-right">
+                            <span class="mini-port-dot flow-dot"></span>
+                            <span class="mini-port-dot any-dot"></span>
+                        </div>
+                    </div>
+                </div>
+                <!-- Sino Block -->
+                <div class="block-template node-preview-card control-block" draggable="true" data-type="nito_sino">
+                    <div class="block-studs"><span></span><span></span><span></span><span></span></div>
+                    <div class="mini-node-header">Sino</div>
+                    <div class="mini-node-ports">
+                        <div class="mini-ports-left">
+                            <span class="mini-port-dot flow-dot"></span>
+                        </div>
+                        <div class="mini-ports-right">
+                            <span class="mini-port-dot flow-dot"></span>
+                        </div>
+                    </div>
+                </div>
+                <!-- While Loop Block -->
+                <div class="block-template node-preview-card control-block" draggable="true" data-type="nito_mientras">
+                    <div class="block-studs"><span></span><span></span><span></span><span></span></div>
+                    <div class="mini-node-header">Bucle Mientras</div>
+                    <div class="mini-node-ports">
+                        <div class="mini-ports-left">
+                            <span class="mini-port-dot flow-dot"></span>
+                            <span class="mini-port-dot any-dot"></span>
+                        </div>
+                        <div class="mini-ports-right">
+                            <span class="mini-port-dot flow-dot"></span>
+                        </div>
+                    </div>
+                </div>
             </div>
-
+ 
             <div class="block-category">
                 <h3>Acciones</h3>
                 <!-- Print Block -->
                 <div class="block-template node-preview-card action-block" draggable="true" data-type="imprimir">
-                    <div class="mini-node-header">🖨️ Imprimir Consola</div>
+                    <div class="block-studs"><span></span><span></span><span></span><span></span></div>
+                    <div class="mini-node-header">Imprimir Consola</div>
                     <div class="mini-node-ports">
                         <div class="mini-ports-left">
                             <span class="mini-port-dot flow-dot"></span>
@@ -101,7 +146,35 @@
                 </div>
                 <!-- Discord Reply Block -->
                 <div class="block-template node-preview-card action-block" draggable="true" data-type="discord_responder">
-                    <div class="mini-node-header">💬 Responder Canal</div>
+                    <div class="block-studs"><span></span><span></span><span></span><span></span></div>
+                    <div class="mini-node-header">Responder Canal</div>
+                    <div class="mini-node-ports">
+                        <div class="mini-ports-left">
+                            <span class="mini-port-dot flow-dot"></span>
+                            <span class="mini-port-dot any-dot"></span>
+                        </div>
+                        <div class="mini-ports-right">
+                            <span class="mini-port-dot flow-dot"></span>
+                        </div>
+                    </div>
+                </div>
+                <!-- Import FFI Block -->
+                <div class="block-template node-preview-card action-block" draggable="true" data-type="nito_importar">
+                    <div class="block-studs"><span></span><span></span><span></span><span></span></div>
+                    <div class="mini-node-header">Importar FFI</div>
+                    <div class="mini-node-ports">
+                        <div class="mini-ports-left">
+                            <span class="mini-port-dot flow-dot"></span>
+                        </div>
+                        <div class="mini-ports-right">
+                            <span class="mini-port-dot flow-dot"></span>
+                        </div>
+                    </div>
+                </div>
+                <!-- Return Block -->
+                <div class="block-template node-preview-card action-block" draggable="true" data-type="nito_retorna">
+                    <div class="block-studs"><span></span><span></span><span></span><span></span></div>
+                    <div class="mini-node-header">Retornar Valor</div>
                     <div class="mini-node-ports">
                         <div class="mini-ports-left">
                             <span class="mini-port-dot flow-dot"></span>
@@ -113,12 +186,13 @@
                     </div>
                 </div>
             </div>
-
+ 
             <div class="block-category">
                 <h3>Axiomas Divinos</h3>
                 <!-- Nito Supreme Block -->
                 <div class="block-template node-preview-card supreme-block" draggable="true" data-type="nito_supreme">
-                    <div class="mini-node-header">👑 Nito Supremo</div>
+                    <div class="block-studs"><span></span><span></span><span></span><span></span></div>
+                    <div class="mini-node-header">Nito Supremo</div>
                     <div class="mini-node-ports">
                         <div class="mini-ports-left"></div>
                         <div class="mini-ports-right">
@@ -127,12 +201,13 @@
                     </div>
                 </div>
             </div>
-
+ 
             <div class="block-category">
                 <h3>Operadores Cuánticos</h3>
                 <!-- QuantumNito Block -->
                 <div class="block-template node-preview-card control-block" draggable="true" data-type="quantum_nito">
-                    <div class="mini-node-header">🔮 QuantumNito(Caja)</div>
+                    <div class="block-studs"><span></span><span></span><span></span><span></span></div>
+                    <div class="mini-node-header">QuantumNito</div>
                     <div class="mini-node-ports">
                         <div class="mini-ports-left">
                             <span class="mini-port-dot any-dot"></span>
@@ -144,7 +219,8 @@
                 </div>
                 <!-- Coalescence Block -->
                 <div class="block-template node-preview-card control-block" draggable="true" data-type="nito_o">
-                    <div class="mini-node-header">🛡️ Coalescencia nito_o</div>
+                    <div class="block-studs"><span></span><span></span><span></span><span></span></div>
+                    <div class="mini-node-header">Coalescencia nito_o</div>
                     <div class="mini-node-ports">
                         <div class="mini-ports-left">
                             <span class="mini-port-dot any-dot"></span>

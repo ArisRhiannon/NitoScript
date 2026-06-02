@@ -205,128 +205,118 @@ body {
     margin-bottom: 14px;
 }
 
-/* Crystal LEGO Block Base Styling (3D Translucent Crystal Look) */
+/* Real 3D LEGO Plastic Brick Base Styling */
 .lego-block {
     position: relative;
-    border-radius: 12px;
+    border-radius: 6px !important;
     margin-bottom: 16px;
     cursor: grab;
     user-select: none;
-    box-shadow: var(--shadow-block);
-    border: 1px solid var(--border-color);
-    transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
-    backdrop-filter: blur(10px);
+    box-shadow: 
+        0 4px 0 rgba(0, 0, 0, 0.2), 
+        inset 0 2px 0 rgba(255, 255, 255, 0.35),
+        0 8px 24px rgba(0, 0, 0, 0.12) !important;
+    border: 1px solid rgba(0, 0, 0, 0.25) !important;
+    transition: all 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    background-clip: padding-box;
+    padding-top: 5px; /* offset for studs */
 }
 
 .lego-block:hover {
     transform: translateY(-2px);
-    box-shadow: var(--shadow-hover);
+    box-shadow: 
+        0 5px 0 rgba(0, 0, 0, 0.2), 
+        inset 0 2px 0 rgba(255, 255, 255, 0.4),
+        0 12px 30px rgba(108, 92, 231, 0.15) !important;
 }
 
 .lego-block:active {
     cursor: grabbing;
 }
 
-/* Glass LEGO Studs on top of blocks */
+/* Beautiful 3D Cylinder LEGO Studs */
 .block-studs {
     height: 6px;
     position: absolute;
     top: -5px;
-    left: 24px;
-    right: 24px;
+    left: 20px;
+    right: 20px;
     display: flex;
-    gap: 18px;
+    justify-content: space-around;
+    pointer-events: none;
+    z-index: 10;
 }
 
-.block-studs::before, .block-studs::after {
-    content: '';
+.block-studs span {
     display: block;
     width: 14px;
     height: 5px;
     background: inherit;
-    border-radius: 4px 4px 0 0;
-    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.4),
-                0 -1px 2px rgba(0, 0, 0, 0.05);
-    border: 1px solid var(--border-light);
+    border-radius: 3px 3px 0 0;
+    border: 1px solid rgba(0, 0, 0, 0.25);
     border-bottom: none;
+    box-shadow: inset 0 1.5px 0 rgba(255, 255, 255, 0.4);
 }
 
 .block-content {
-    padding: 13px 20px;
-    font-weight: 600;
+    padding: 11px 16px;
+    font-weight: 800;
     font-size: 13.5px;
     display: flex;
     flex-wrap: wrap;
     align-items: center;
     gap: 10px;
     border-radius: inherit;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.15) !important;
 }
 
-/* Translucent Inputs within Blocks */
+/* Solid, High-Contrast 3D Input Boxes */
 .block-input {
-    background: rgba(255, 255, 255, 0.55);
-    border: 1px solid rgba(255, 255, 255, 0.8);
-    color: var(--text-primary);
-    border-radius: 8px;
+    background: rgba(255, 255, 255, 0.9) !important;
+    border: 1px solid rgba(0, 0, 0, 0.2) !important;
+    color: #1d2138 !important;
+    border-radius: 6px !important;
     padding: 5px 10px;
     font-family: var(--font-sans);
     font-size: 12px;
-    font-weight: 600;
+    font-weight: 700;
     outline: none;
     max-width: 130px;
     transition: all 0.2s ease;
-    box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.02);
+    box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.1) !important;
 }
 
 .block-input:focus {
-    background: rgba(255, 255, 255, 0.85);
-    border-color: #6c5ce7;
-    box-shadow: 0 0 0 3px rgba(108, 92, 231, 0.1);
+    background: #ffffff !important;
+    box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.35) !important;
 }
 
-/* Block Category Mappings (Original Lavender style, extremely elegant) */
+/* LEGO Neon Gradients representing Category Colors (High Contrast, Soulful) */
 .event-block {
-    background: var(--color-event);
-    border-left: 5px solid var(--color-event-border);
-    color: var(--color-event-text);
-}
-.event-block .block-studs::before, .event-block .block-studs::after {
-    background: var(--color-event);
+    background: linear-gradient(135deg, #8176ff 0%, #6c5ce7 100%) !important;
+    color: #ffffff !important;
 }
 
 .control-block {
-    background: var(--color-control);
-    border-left: 5px solid var(--color-control-border);
-    color: var(--color-control-text);
-}
-.control-block .block-studs::before, .control-block .block-studs::after {
-    background: var(--color-control);
+    background: linear-gradient(135deg, #12cbc4 0%, #0984e3 100%) !important;
+    color: #ffffff !important;
 }
 
 .action-block {
-    background: var(--color-action);
-    border-left: 5px solid var(--color-action-border);
-    color: var(--color-action-text);
-}
-.action-block .block-studs::before, .action-block .block-studs::after {
-    background: var(--color-action);
+    background: linear-gradient(135deg, #2ecc71 0%, #00b894 100%) !important;
+    color: #ffffff !important;
 }
 
 .supreme-block {
-    background: var(--color-supreme);
-    border-left: 5px solid var(--color-supreme-border);
-    color: var(--color-supreme-text);
+    background: linear-gradient(135deg, #ffd32c 0%, #fdcb6e 100%) !important;
+    color: #1d2138 !important;
     animation: divineGlow 3s infinite ease-in-out;
-}
-.supreme-block .block-studs::before, .supreme-block .block-studs::after {
-    background: var(--color-supreme);
 }
 
 /* Special styling for Fin de Bloque */
 .fin-block-style {
-    background: var(--color-fin) !important;
-    border-left: 5px solid var(--color-fin-border) !important;
-    color: var(--color-fin-text) !important;
+    background: linear-gradient(135deg, #b2bec3 0%, #636e72 100%) !important;
+    color: #ffffff !important;
 }
 .fin-block-style .block-studs::before, .fin-block-style .block-studs::after {
     background: var(--color-fin) !important;
@@ -879,42 +869,72 @@ body {
    NITOBLOCKS IDE PREMIUM STYLING & INTERACTIVE UX REWORK
    ============================================================================== */
 
-/* Rework of NitoBlocks Paleta de Bloques - Modern Preview Cards */
+/* Rework of NitoBlocks Paleta de Bloques - 3D LEGO Plastic Bricks */
 .node-preview-card {
-    background: var(--bg-glass-light);
-    border: 1.5px solid var(--border-color);
-    border-radius: 14px;
+    border: 1px solid rgba(0, 0, 0, 0.25) !important;
+    border-radius: 6px !important;
     padding: 14px 16px;
     margin-bottom: 16px;
     cursor: grab;
     user-select: none;
-    transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
-    box-shadow: 0 4px 15px rgba(31, 38, 135, 0.03);
-    backdrop-filter: blur(8px);
+    transition: all 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    box-shadow: 
+        0 4px 0 rgba(0, 0, 0, 0.18), 
+        inset 0 1.5px 0 rgba(255, 255, 255, 0.35),
+        0 8px 16px rgba(0, 0, 0, 0.08) !important;
     position: relative;
     overflow: hidden;
+    padding-top: 18px !important; /* spacing for studs on top */
 }
 
 .node-preview-card:hover {
-    background: var(--bg-glass-hover);
-    transform: translateY(-3px) scale(1.025);
-    box-shadow: 0 8px 24px rgba(108, 92, 231, 0.12);
-    border-color: rgba(108, 92, 231, 0.4);
+    transform: translateY(-4px) scale(1.03);
+    box-shadow: 
+        0 6px 0 rgba(0, 0, 0, 0.18), 
+        inset 0 1.5px 0 rgba(255, 255, 255, 0.4),
+        0 14px 24px rgba(108, 92, 231, 0.15) !important;
+    filter: brightness(1.06);
 }
 
 .node-preview-card:active {
     cursor: grabbing;
-    transform: translateY(0) scale(0.97);
+    transform: translateY(2px);
+    box-shadow: 
+        0 2px 0 rgba(0, 0, 0, 0.15), 
+        inset 0 1px 0 rgba(255, 255, 255, 0.2) !important;
+}
+
+/* Beautiful Category Gradient Gels for Paleta de Bloques (Rich Soul) */
+.node-preview-card.event-block {
+    background: linear-gradient(135deg, #8176ff 0%, #6c5ce7 100%) !important;
+    color: #ffffff !important;
+}
+.node-preview-card.control-block {
+    background: linear-gradient(135deg, #12cbc4 0%, #0984e3 100%) !important;
+    color: #ffffff !important;
+}
+.node-preview-card.action-block {
+    background: linear-gradient(135deg, #2ecc71 0%, #00b894 100%) !important;
+    color: #ffffff !important;
+}
+.node-preview-card.supreme-block {
+    background: linear-gradient(135deg, #ffd32c 0%, #fdcb6e 100%) !important;
+    color: #1d2138 !important;
+    animation: divineGlow 3s infinite ease-in-out !important;
 }
 
 .mini-node-header {
     font-size: 13.5px;
-    font-weight: 700;
-    color: var(--text-primary);
+    font-weight: 800;
+    color: inherit !important;
     margin-bottom: 8px;
     display: flex;
     align-items: center;
     gap: 6px;
+    text-shadow: 0 1px 2px rgba(0,0,0,0.18);
+}
+.supreme-block .mini-node-header {
+    text-shadow: 0 1px 1px rgba(255,255,255,0.4);
 }
 
 .mini-node-ports {
@@ -923,7 +943,7 @@ body {
     align-items: center;
     min-height: 10px;
     padding-top: 8px;
-    border-top: 1px dashed rgba(140, 149, 191, 0.2);
+    border-top: 1px solid rgba(255, 255, 255, 0.15) !important;
 }
 
 .mini-ports-left, .mini-ports-right {
@@ -1116,6 +1136,52 @@ body {
     background-color: rgba(108, 92, 231, 0.04);
     outline: 2px dashed rgba(108, 92, 231, 0.3);
     outline-offset: -6px;
+}
+
+/* ==============================================================================
+   PORT LABELS HIGH-CONTRAST READABILITY OVERRIDES
+   ============================================================================== */
+.port span {
+    color: rgba(255, 255, 255, 0.95) !important;
+    font-weight: 800 !important;
+    font-size: 11px !important;
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.22) !important;
+    pointer-events: none;
+}
+
+.supreme-block .port span {
+    color: #1d2138 !important;
+    text-shadow: none !important;
+}
+
+.block-label {
+    color: #ffffff !important;
+    font-weight: 800 !important;
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.2) !important;
+}
+
+.supreme-block .block-label {
+    color: #1d2138 !important;
+    text-shadow: none !important;
+}
+
+/* Lego block header removal button adjustments */
+.remove-block-btn {
+    color: rgba(255, 255, 255, 0.8) !important;
+    text-shadow: 0 1px 1px rgba(0,0,0,0.1) !important;
+}
+
+.remove-block-btn:hover {
+    color: #ff7675 !important;
+}
+
+.supreme-block .remove-block-btn {
+    color: rgba(29, 33, 56, 0.6) !important;
+    text-shadow: none !important;
+}
+
+.supreme-block .remove-block-btn:hover {
+    color: #d63031 !important;
 }
 
 

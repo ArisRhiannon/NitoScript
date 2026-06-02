@@ -160,9 +160,12 @@ document.addEventListener('DOMContentLoaded', () => {
         ribbon.className = 'block-flow-ribbon';
         block.appendChild(ribbon);
 
-        // LEGO Studs
+        // LEGO Studs (Physical 3D LEGO cylinders)
         const studs = document.createElement('div');
         studs.className = 'block-studs';
+        for (let i = 0; i < 4; i++) {
+            studs.appendChild(document.createElement('span'));
+        }
         block.appendChild(studs);
 
         // Header (acts as drag handle)
@@ -200,7 +203,17 @@ document.addEventListener('DOMContentLoaded', () => {
         body.style.flexDirection = 'column';
         body.style.gap = '8px';
 
-        if (type === 'imprimir' || type === 'discord_responder' || type === 'nito_si') {
+        const needsInput = (
+            type === 'imprimir' || 
+            type === 'discord_responder' || 
+            type === 'nito_si' || 
+            type === 'nito_sino_si' || 
+            type === 'nito_mientras' || 
+            type === 'nito_importar' || 
+            type === 'nito_retorna'
+        );
+
+        if (needsInput) {
             const inputContainer = document.createElement('div');
             inputContainer.style.display = 'flex';
             inputContainer.style.alignItems = 'center';
@@ -208,13 +221,26 @@ document.addEventListener('DOMContentLoaded', () => {
             inputContainer.style.fontSize = '12px';
 
             const placeholderLabel = document.createElement('span');
-            placeholderLabel.innerText = type === 'nito_si' ? "Comparar:" : "Mensaje:";
+            if (type === 'nito_si' || type === 'nito_sino_si') placeholderLabel.innerText = "Comparar:";
+            else if (type === 'nito_mientras') placeholderLabel.innerText = "Mientras:";
+            else if (type === 'nito_importar') placeholderLabel.innerText = "FFI Modulo:";
+            else if (type === 'nito_retorna') placeholderLabel.innerText = "Retornar:";
+            else placeholderLabel.innerText = "Mensaje:";
+            
             inputContainer.appendChild(placeholderLabel);
 
             const input = document.createElement('input');
             input.type = 'text';
             input.className = 'block-input';
-            input.value = type === 'nito_si' ? "ping" : "¡Hola Nito!";
+            
+            // Set default descriptive initial values
+            if (type === 'nito_si') input.value = "ping";
+            else if (type === 'nito_sino_si') input.value = "pong";
+            else if (type === 'nito_mientras') input.value = "NITO";
+            else if (type === 'nito_importar') input.value = "math.sin";
+            else if (type === 'nito_retorna') input.value = "NITO";
+            else input.value = "¡Hola Nito!";
+            
             input.style.flex = '1';
             input.style.maxWidth = '150px';
             input.addEventListener('input', updateGeneratedCode);
@@ -322,39 +348,64 @@ document.addEventListener('DOMContentLoaded', () => {
         
         if (type === 'discord_event') {
             createPort(outputsPanel, 'out_flow', 'Ejecutar', 'flow', 'output');
-            createPort(outputsPanel, 'out_data_msg', '📩 evento.msg', 'data-string', 'output');
+            createPort(outputsPanel, 'out_data_msg', 'evento.msg', 'data-string', 'output');
         } 
         else if (type === 'nito_si') {
             createPort(inputsPanel, 'in_flow', 'Flujo', 'flow', 'input');
-            createPort(inputsPanel, 'in_data_cond', '🔍 Comparar', 'data-string', 'input');
+            createPort(inputsPanel, 'in_data_cond', 'Comparar', 'data-string', 'input');
             
             createPort(outputsPanel, 'out_flow', 'Haz', 'flow', 'output');
-            createPort(outputsPanel, 'out_data_res', '🧠 resultado', 'data-any', 'output');
+            createPort(outputsPanel, 'out_data_res', 'resultado', 'data-any', 'output');
+        }
+        else if (type === 'nito_sino_si') {
+            createPort(inputsPanel, 'in_flow', 'Flujo', 'flow', 'input');
+            createPort(inputsPanel, 'in_data_cond', 'Comparar', 'data-string', 'input');
+            
+            createPort(outputsPanel, 'out_flow', 'Haz', 'flow', 'output');
+            createPort(outputsPanel, 'out_data_res', 'resultado', 'data-any', 'output');
+        }
+        else if (type === 'nito_sino') {
+            createPort(inputsPanel, 'in_flow', 'Flujo', 'flow', 'input');
+            createPort(outputsPanel, 'out_flow', 'Haz', 'flow', 'output');
+        }
+        else if (type === 'nito_mientras') {
+            createPort(inputsPanel, 'in_flow', 'Flujo', 'flow', 'input');
+            createPort(inputsPanel, 'in_data_cond', 'Condicion', 'data-any', 'input');
+            createPort(outputsPanel, 'out_flow', 'Repetir', 'flow', 'output');
         }
         else if (type === 'imprimir') {
             createPort(inputsPanel, 'in_flow', 'Flujo', 'flow', 'input');
-            createPort(inputsPanel, 'in_data_msg', '💬 Texto', 'data-any', 'input');
+            createPort(inputsPanel, 'in_data_msg', 'Texto', 'data-any', 'input');
             
             createPort(outputsPanel, 'out_flow', 'Flujo', 'flow', 'output');
         }
         else if (type === 'discord_responder') {
             createPort(inputsPanel, 'in_flow', 'Flujo', 'flow', 'input');
-            createPort(inputsPanel, 'in_data_resp', '💬 Respuesta', 'data-any', 'input');
+            createPort(inputsPanel, 'in_data_resp', 'Respuesta', 'data-any', 'input');
             
             createPort(outputsPanel, 'out_flow', 'Flujo', 'flow', 'output');
         }
+        else if (type === 'nito_importar') {
+            createPort(inputsPanel, 'in_flow', 'Flujo', 'flow', 'input');
+            createPort(outputsPanel, 'out_flow', 'Flujo', 'flow', 'output');
+        }
+        else if (type === 'nito_retorna') {
+            createPort(inputsPanel, 'in_flow', 'Flujo', 'flow', 'input');
+            createPort(inputsPanel, 'in_data_val', 'Valor', 'data-any', 'input');
+            createPort(outputsPanel, 'out_flow', 'Flujo', 'flow', 'output');
+        }
         else if (type === 'nito_supreme') {
-            createPort(outputsPanel, 'out_data_nito', '👑 Nito', 'data-any', 'output');
+            createPort(outputsPanel, 'out_data_nito', 'Nito', 'data-any', 'output');
         }
         else if (type === 'quantum_nito') {
-            createPort(inputsPanel, 'in_data_obj', '📦 Objeto', 'data-any', 'input');
-            createPort(outputsPanel, 'out_data_box', '🔮 Caja(Null-Safe)', 'data-any', 'output');
+            createPort(inputsPanel, 'in_data_obj', 'Objeto', 'data-any', 'input');
+            createPort(outputsPanel, 'out_data_box', 'Caja(Null-Safe)', 'data-any', 'output');
         }
         else if (type === 'nito_o') {
-            createPort(inputsPanel, 'in_data_val', '🔮 Caja', 'data-any', 'input');
-            createPort(inputsPanel, 'in_data_fallback', '🛡️ Respaldo', 'data-any', 'input');
+            createPort(inputsPanel, 'in_data_val', 'Caja', 'data-any', 'input');
+            createPort(inputsPanel, 'in_data_fallback', 'Respaldo', 'data-any', 'input');
             
-            createPort(outputsPanel, 'out_data_res', '💎 Fusión', 'data-any', 'output');
+            createPort(outputsPanel, 'out_data_res', 'Fusion', 'data-any', 'output');
         }
     }
 
@@ -714,13 +765,26 @@ document.addEventListener('DOMContentLoaded', () => {
         const rawValue = inputEl ? inputEl.value : "";
 
         if (type === 'discord_event') {
-            compiledBlocks.push(`nitosegs al_recibir_mensaje() entonces`);
+            compiledBlocks.push(`nitosegs al_recibir_mensaje() entonces {`);
             indentStack.push("    ");
         } 
         else if (type === 'nito_si') {
-            // Find data feeding the comparison condition
             const resolvedCond = getDataInputSource(nodeId, 'in_data_cond') || `"${rawValue}"`;
-            compiledBlocks.push(`${indent}nito_si mensaje es igual a ${resolvedCond} haz`);
+            compiledBlocks.push(`${indent}nito_si (mensaje == ${resolvedCond}) entonces {`);
+            indentStack.push("    ");
+        }
+        else if (type === 'nito_sino_si') {
+            const resolvedCond = getDataInputSource(nodeId, 'in_data_cond') || `"${rawValue}"`;
+            compiledBlocks.push(`${indent}} nito_sino_si (mensaje == ${resolvedCond}) entonces {`);
+            indentStack.push("    ");
+        }
+        else if (type === 'nito_sino') {
+            compiledBlocks.push(`${indent}} nito_sino {`);
+            indentStack.push("    ");
+        }
+        else if (type === 'nito_mientras') {
+            const resolvedCond = getDataInputSource(nodeId, 'in_data_cond') || `${rawValue}`;
+            compiledBlocks.push(`${indent}nito_mientras (${resolvedCond}) haz`);
             indentStack.push("    ");
         }
         else if (type === 'imprimir') {
@@ -730,6 +794,13 @@ document.addEventListener('DOMContentLoaded', () => {
         else if (type === 'discord_responder') {
             const resolvedResp = getDataInputSource(nodeId, 'in_data_resp') || `"${rawValue}"`;
             compiledBlocks.push(`${indent}responder(${resolvedResp})`);
+        }
+        else if (type === 'nito_importar') {
+            compiledBlocks.push(`${indent}nito_importar ${rawValue}`);
+        }
+        else if (type === 'nito_retorna') {
+            const resolvedVal = getDataInputSource(nodeId, 'in_data_val') || `"${rawValue}"`;
+            compiledBlocks.push(`${indent}nito_retorna ${resolvedVal}`);
         }
 
         // 3. PROPAGATE EXECUTION FLOW TO SUBSEQUENT CONNECTED NODES
@@ -741,12 +812,18 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         // 4. POP INDENTATION WRAPPER WHEN FINISHING CONDITIONAL DEPTHS
-        if (type === 'discord_event' || type === 'nito_si') {
+        if (type === 'discord_event' || type === 'nito_si' || type === 'nito_sino_si' || type === 'nito_sino' || type === 'nito_mientras') {
             if (indentStack.length > 1) {
                 indentStack.pop();
             }
             indent = indentStack.join("");
-            compiledBlocks.push(`${indent}# Fin del bloque`);
+            if (type === 'discord_event') {
+                compiledBlocks.push(`${indent}# Fin del evento`);
+            } else if (type === 'nito_mientras') {
+                compiledBlocks.push(`${indent}# Fin del bucle`);
+            } else {
+                compiledBlocks.push(`${indent}}`);
+            }
         }
     }
 
@@ -1148,20 +1225,33 @@ document.addEventListener('DOMContentLoaded', () => {
     // Helper mappings
     function getBlockColorClass(type) {
         if (type === 'discord_event') return 'event-block';
-        if (type === 'nito_si') return 'control-block';
-        if (type === 'quantum_nito' || type === 'nito_o') return 'control-block';
+        if (
+            type === 'nito_si' || 
+            type === 'nito_sino_si' || 
+            type === 'nito_sino' || 
+            type === 'nito_mientras' || 
+            type === 'quantum_nito' || 
+            type === 'nito_o'
+        ) {
+            return 'control-block';
+        }
         if (type === 'nito_supreme') return 'supreme-block';
         return 'action-block';
     }
 
     function getNodeLabel(type) {
-        if (type === 'discord_event') return '📩 Al Recibir Mensaje';
-        if (type === 'nito_si') return '🔍 Si Condición';
-        if (type === 'imprimir') return '🖨️ Imprimir Consola';
-        if (type === 'discord_responder') return '💬 Responder Canal';
-        if (type === 'nito_supreme') return '👑 Nito Supremo';
-        if (type === 'quantum_nito') return '🔮 QuantumNito (Caja)';
-        if (type === 'nito_o') return '🛡️ Coalescencia (nito_o)';
+        if (type === 'discord_event') return 'Al Recibir Mensaje';
+        if (type === 'nito_si') return 'Si Condición';
+        if (type === 'nito_sino_si') return 'Sino Si Condición';
+        if (type === 'nito_sino') return 'Sino';
+        if (type === 'nito_mientras') return 'Bucle Mientras';
+        if (type === 'imprimir') return 'Imprimir Consola';
+        if (type === 'discord_responder') return 'Responder Canal';
+        if (type === 'nito_importar') return 'Importar FFI';
+        if (type === 'nito_retorna') return 'Retornar Valor';
+        if (type === 'nito_supreme') return 'Nito Supremo';
+        if (type === 'quantum_nito') return 'QuantumNito';
+        if (type === 'nito_o') return 'Coalescencia nito_o';
         return 'Nodo';
     }
 
