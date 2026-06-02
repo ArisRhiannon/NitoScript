@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    
+    <!-- SEO Meta Tags -->
+    <title>NitoBlocks v0.1.0 - IDE Visual de Programación Modular para NitoScript</title>
+    <meta name="description" content="Diseña, compila y ejecuta bots de Discord y scripts con NitoBlocks, el entorno visual de bloques LEGO para NitoScript, un lenguaje esotérico tolerante a errores con máquina virtual de bytecode.">
+    <meta name="keywords" content="NitoScript, NitoBlocks, lenguaje esotérico, esolang, programación visual, lego programming, bot de discord, bytecode, virtual machine, autohealing parser, arisrhiannon">
+    <meta name="author" content="Arisrhiannon">
+    <meta name="robots" content="index, follow">
+    
+    <!-- Open Graph / Facebook Meta Tags -->
+    <meta property="og:type" content="website">
+    <meta property="og:url" content="https://github.com/arisrhiannon/nitoscript">
+    <meta property="og:title" content="NitoBlocks v0.1.0 - Programación Visual Lego para NitoScript">
+    <meta property="og:description" content="Entorno integrado visual LEGO de alta tolerancia a fallos. Programa tu lógica en minutos y compila a bytecode nativo de NitoScript.">
+    <meta property="og:image" content="../assets/nitoblocks_banner.png">
+
+    <!-- Twitter Card Meta Tags -->
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="NitoBlocks v0.1.0 - IDE Visual para NitoScript">
+    <meta name="twitter:description" content="Programa visualmente como si conectaras bloques LEGO con soporte de compilación a bytecode y auto-recuperación de errores en tiempo real.">
+    <meta name="twitter:image" content="../assets/nitoblocks_banner.png">
+
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;800&family=Source+Code+Pro:wght@400;600&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <header class="app-header">
+        <div class="logo-area">
+            <span class="logo-icon">🟨</span>
+            <h1>NitoBlocks <span class="version-badge">v0.1.0</span></h1>
+            <p class="subtitle">Programación Visual Tolerante a Errores para NitoScript</p>
+        </div>
+        <div class="action-buttons">
+            <button id="btn-run" class="btn btn-primary">⚡ Ejecutar Bloques</button>
+            <button id="btn-clear" class="btn btn-secondary">🗑️ Limpiar Lienzo</button>
+        </div>
+    </header>
+
+    <main class="app-container">
+        <!-- Toolbox (Left Pane) -->
+        <aside class="toolbox-panel">
+            <h2>🧩 Paleta de Bloques</h2>
+            <p class="panel-desc">Arrastra o haz clic en los bloques para conectarlos en el lienzo.</p>
+            
+            <div class="block-category">
+                <h3>Eventos (Discord)</h3>
+                <!-- Discord Event Block -->
+                <div class="block-template lego-block event-block" draggable="true" data-type="discord_event">
+                    <div class="block-studs"></div>
+                    <div class="block-content">
+                        <span class="block-label">Al recibir mensaje de Discord:</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="block-category">
+                <h3>Lógica y Control</h3>
+                <!-- If Condition Block -->
+                <div class="block-template lego-block control-block" draggable="true" data-type="nito_si">
+                    <div class="block-studs"></div>
+                    <div class="block-content">
+                        <span class="block-label">nito_si [mensaje] es igual a</span>
+                        <input type="text" class="block-input" placeholder="ping" value="ping">
+                    </div>
+                </div>
+                <!-- End of Block Block -->
+                <div class="block-template lego-block control-block" draggable="true" data-type="fin_de_bloque" style="background-color: #7f8c8d; border-bottom: 4px solid #707b7c;">
+                    <div class="block-studs" style="background-color: #7f8c8d;"></div>
+                    <div class="block-content">
+                        <span class="block-label">🛑 Fin de Bloque (Dedent)</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="block-category">
+                <h3>Acciones</h3>
+                <!-- Print Block -->
+                <div class="block-template lego-block action-block" draggable="true" data-type="imprimir">
+                    <div class="block-studs"></div>
+                    <div class="block-content">
+                        <span class="block-label">imprimir en consola:</span>
+                        <input type="text" class="block-input" placeholder="Mensaje..." value="¡Pong!">
+                    </div>
+                </div>
+                <!-- Discord Reply Block -->
+                <div class="block-template lego-block action-block" draggable="true" data-type="discord_responder">
+                    <div class="block-studs"></div>
+                    <div class="block-content">
+                        <span class="block-label">responder al canal:</span>
+                        <input type="text" class="block-input" placeholder="Respuesta..." value="Nito es mayor que tu ping">
+                    </div>
+                </div>
+            </div>
+
+            <div class="block-category">
+                <h3>Axiomas Divinos</h3>
+                <!-- Nito Supreme Block -->
+                <div class="block-template lego-block supreme-block" draggable="true" data-type="nito_supreme">
+                    <div class="block-studs"></div>
+                    <div class="block-content">
+                        <span class="block-label">👑 Nito (Elemento Supremo)</span>
+                    </div>
+                </div>
+            </div>
+        </aside>
+
+        <!-- Workspace (Center Pane) -->
+        <section class="workspace-panel">
+            <div class="panel-header">
+                <h2>🏗️ Lienzo de Conexión (Workspace)</h2>
+                <span class="instruction-tip">Suelta los bloques aquí para apilarlos como LEGOs</span>
+            </div>
+            <div id="workspace" class="workspace-dropzone">
+                <div class="workspace-grid-overlay"></div>
+                <!-- Connected blocks will render here dynamically -->
+                <div class="empty-state">
+                    <div class="empty-icon">🔌</div>
+                    <h3>El lienzo está vacío</h3>
+                    <p>Arrastra bloques desde la izquierda para comenzar a programar tu bot.</p>
+                </div>
+            </div>
+        </section>
+
+        <!-- Code & Console (Right Pane) -->
+        <aside class="output-panel">
+            <!-- NitoScript Code Generator -->
+            <div class="code-viewer">
+                <h3>📄 Código NitoScript Generado</h3>
+                <pre><code id="generated-code"># El código aparecerá aquí automáticamente...</code></pre>
+            </div>
+            <!-- Interactive Simulator Console -->
+            <div class="console-viewer">
+                <h3>💻 Consola de Ejecución</h3>
+                <div id="console-output" class="console-screen">
+                    <span class="console-placeholder">Haz clic en "Ejecutar Bloques" para iniciar el simulador.</span>
+                </div>
+            </div>
+        </aside>
+    </main>
+
+    <footer class="app-footer">
+        <p>NitoScript 0.1.0 & NitoBlocks IDE - Diseñado para una resiliencia sintáctica absoluta.</p>
+    </footer>
+
+    <script src="app.js"></script>
+</body>
+</html>
