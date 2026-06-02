@@ -1140,7 +1140,6 @@ body {
    ============================================================================== */
 .lego-block, .block-template {
     text-shadow: 0 1.5px 3px rgba(0, 0, 0, 0.35) !important;
-    -webkit-text-stroke: 0.4px rgba(0, 0, 0, 0.3) !important;
 }
 
 .port span {
@@ -1148,27 +1147,23 @@ body {
     font-weight: 800 !important;
     font-size: 11px !important;
     text-shadow: 0 1.5px 3px rgba(0, 0, 0, 0.35) !important;
-    -webkit-text-stroke: 0.4px rgba(0, 0, 0, 0.3) !important;
     pointer-events: none;
 }
 
 .supreme-block .port span {
     color: #1d2138 !important;
     text-shadow: none !important;
-    -webkit-text-stroke: none !important;
 }
 
 .block-label {
     color: #ffffff !important;
     font-weight: 800 !important;
     text-shadow: 0 1.5px 3px rgba(0, 0, 0, 0.35) !important;
-    -webkit-text-stroke: 0.4px rgba(0, 0, 0, 0.3) !important;
 }
 
 .supreme-block .block-label {
     color: #1d2138 !important;
     text-shadow: none !important;
-    -webkit-text-stroke: none !important;
 }
 
 /* Lego block header removal button adjustments */
