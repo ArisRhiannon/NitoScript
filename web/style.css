@@ -1142,22 +1142,17 @@ body {
     text-shadow: 0 1.5px 3px rgba(0, 0, 0, 0.35) !important;
 }
 
-.port span:not(.port-socket) {
+.port span {
     color: rgba(255, 255, 255, 0.95) !important;
     font-weight: 800 !important;
     font-size: 11px !important;
     text-shadow: 0 1.5px 3px rgba(0, 0, 0, 0.35) !important;
     pointer-events: none;
-    background: rgba(0, 0, 0, 0.15) !important;
-    padding: 3px 10px !important;
-    border-radius: 20px !important;
-    display: inline-block !important;
 }
 
-.supreme-block .port span:not(.port-socket) {
+.supreme-block .port span {
     color: #1d2138 !important;
     text-shadow: none !important;
-    background: none !important;
 }
 
 .block-label {
