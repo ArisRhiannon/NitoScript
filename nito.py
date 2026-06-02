@@ -931,16 +931,25 @@ class NitoSupremeType:
         if isinstance(other, NitoSupremeType): return True
         return False
 
-    def __add__(self, other) -> 'NitoSupremeType': return self
-    def __radd__(self, other) -> 'NitoSupremeType': return self
+    def __add__(self, other) -> 'NitoSupremeType':
+        if isinstance(other, (int, float, str)):
+            return self
+        raise SupremeViolationError("Heresy: Invalid addition operation on Nito.")
+
+    def __radd__(self, other) -> 'NitoSupremeType':
+        return self.__add__(other)
 
     def __sub__(self, other) -> 'NitoSupremeType':
         if isinstance(other, NitoSupremeType):
             raise SupremeViolationError("Heresy: Cannot subtract Nito from Nito.")
-        return self
+        if isinstance(other, (int, float)):
+            return self
+        raise SupremeViolationError("Heresy: Invalid subtraction operation on Nito.")
 
     def __rsub__(self, other) -> Any:
-        raise SupremeViolationError("Heresy: Cannot subtract Nito from a finite value.")
+        if isinstance(other, (int, float)):
+            raise SupremeViolationError("Heresy: Cannot subtract Nito from a finite value.")
+        raise SupremeViolationError("Heresy: Invalid subtraction operation on Nito.")
 
     def __mul__(self, other) -> 'NitoSupremeType':
         if isinstance(other, (int, float)):
@@ -1201,6 +1210,7 @@ class Opcode(Enum):
     RETURN_VALUE = auto()
     PRINT = auto()
     IMPORT_FFI = auto()
+    POP_TOP = auto()
 
 class Instruction:
     def __init__(self, opcode: Opcode, arg: Any = None):
@@ -1287,22 +1297,41 @@ class Compiler:
             for stmt in node.statements:
                 self.compile(stmt)
         elif isinstance(node, IfNode):
+            exit_jumps = []
+            
+            # 1. Rama then
             self.compile(node.condition)
-            jump_false_idx = self.code.emit(Opcode.JUMP_IF_FALSE, 0)
+            jump_next_idx = self.code.emit(Opcode.JUMP_IF_FALSE, 0)
             
-            # compile then
             self.compile(node.then_branch)
-            jump_end_idx = self.code.emit(Opcode.JUMP, 0)
+            if node.elif_branches or node.else_branch:
+                exit_jumps.append(self.code.emit(Opcode.JUMP, 0))
+                
+            # Parchear salto condicional principal
+            self.code.instructions[jump_next_idx].arg = len(self.code.instructions)
             
-            # patch jump_false target
-            self.code.instructions[jump_false_idx].arg = len(self.code.instructions)
-            
-            # compile else/elifs
+            # 2. Ramas Elif
+            for elif_cond, elif_body in node.elif_branches:
+                self.compile(elif_cond)
+                jump_next_idx = self.code.emit(Opcode.JUMP_IF_FALSE, 0)
+                
+                self.compile(elif_body)
+                exit_jumps.append(self.code.emit(Opcode.JUMP, 0))
+                
+                # Parchear salto del condicional
+                self.code.instructions[jump_next_idx].arg = len(self.code.instructions)
+                
+            # 3. Rama else
             if node.else_branch:
                 self.compile(node.else_branch)
                 
-            # patch jump_end target
-            self.code.instructions[jump_end_idx].arg = len(self.code.instructions)
+            # 4. Parchear saltos de salida
+            end_address = len(self.code.instructions)
+            for idx in exit_jumps:
+                self.code.instructions[idx].arg = end_address
+        elif isinstance(node, ExprStmtNode):
+            self.compile(node.expression)
+            self.code.emit(Opcode.POP_TOP)
         elif isinstance(node, WhileNode):
             start_loop = len(self.code.instructions)
             self.compile(node.condition)
@@ -1359,6 +1388,11 @@ class NitoSupremeExecutor:
         self.haz(instr)
         return True
 
+    def pop_stack(self) -> Any:
+        if not self.stack:
+            raise RuntimeError("Stack underflow in NitoSupremeExecutor.")
+        return self.stack.pop()
+
     def haz(self, instr: Instruction):
         op = instr.opcode
         arg = instr.arg
@@ -1370,59 +1404,58 @@ class NitoSupremeExecutor:
             self.stack.append(self.environment.get(name))
         elif op == Opcode.STORE_NAME:
             name = self.code.names[arg]
-            val = self.stack.pop()
+            val = self.pop_stack()
             self.environment.assign(name, val)
         elif op == Opcode.DECLARE_NAME:
             name_idx, is_const = arg
             name = self.code.names[name_idx]
-            val = self.stack.pop()
+            val = self.pop_stack()
             if isinstance(val, NitoCompiledFunction):
                 val.closure = self.environment
             self.environment.define(name, val, is_const)
         elif op == Opcode.ADD:
-            right = self.stack.pop()
-            left = self.stack.pop()
+            right = self.pop_stack()
+            left = self.pop_stack()
             self.stack.append(evaluate_binary_op(left, "+", right))
         elif op == Opcode.SUB:
-            right = self.stack.pop()
-            left = self.stack.pop()
+            right = self.pop_stack()
+            left = self.pop_stack()
             self.stack.append(evaluate_binary_op(left, "-", right))
         elif op == Opcode.MUL:
-            right = self.stack.pop()
-            left = self.stack.pop()
+            right = self.pop_stack()
+            left = self.pop_stack()
             self.stack.append(evaluate_binary_op(left, "*", right))
         elif op == Opcode.DIV:
-            right = self.stack.pop()
-            left = self.stack.pop()
+            right = self.pop_stack()
+            left = self.pop_stack()
             self.stack.append(evaluate_binary_op(left, "/", right))
         elif op == Opcode.MOD:
-            right = self.stack.pop()
-            left = self.stack.pop()
+            right = self.pop_stack()
+            left = self.pop_stack()
             self.stack.append(evaluate_binary_op(left, "%", right))
         elif op == Opcode.COMPARE:
-            right = self.stack.pop()
-            left = self.stack.pop()
+            right = self.pop_stack()
+            left = self.pop_stack()
             if arg == "nito_no":
-                # Unary NOT logic
                 self.stack.append(not bool(left))
             else:
                 self.stack.append(evaluate_binary_op(left, arg, right))
         elif op == Opcode.JUMP:
             self.ip = arg
         elif op == Opcode.JUMP_IF_FALSE:
-            val = self.stack.pop()
+            val = self.pop_stack()
             if not bool(val):
                 self.ip = arg
         elif op == Opcode.PRINT:
-            val = self.stack.pop()
+            val = self.pop_stack()
             if val is True: print("NITO")
             elif val is False: print("NO_NITO")
             else: print(val)
         elif op == Opcode.CALL:
             args = []
             for _ in range(arg):
-                args.insert(0, self.stack.pop())
-            callee = self.stack.pop()
+                args.insert(0, self.pop_stack())
+            callee = self.pop_stack()
             
             if isinstance(callee, NitoNativeFunction):
                 res = callee.call(self, args)
@@ -1448,6 +1481,8 @@ class NitoSupremeExecutor:
                 print(f"[FFI] Importada función nativa '{module_name + '.' if module_name else ''}{name}' con éxito.")
             except Exception as e:
                 raise ImportError(f"Cannot import native function '{name}' from '{module_name}': {e}")
+        elif op == Opcode.POP_TOP:
+            self.pop_stack()
         else:
             raise RuntimeError(f"Unknown executor opcode {op.name}")
 
@@ -1554,9 +1589,9 @@ def ai_fallback_interpreter(source_code: str, env: Environment) -> Any:
                 else:
                     val = evaluate_ai_expression(right, env)
                 
-                if var_name in env.values:
+                try:
                     env.assign(var_name, val)
-                else:
+                except NameError:
                     is_const = "nitosexo" in line.lower()
                     env.define(var_name, val, is_const)
                 print(f"[Inteligencia Propia] Bound variable '{var_name}' = {val}")

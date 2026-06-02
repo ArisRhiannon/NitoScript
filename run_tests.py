@@ -234,6 +234,33 @@ def test_ffi_and_bytecode_vm():
     assert "0.0" in output or "0" in output
     print("Test 10 Passed!\n")
 
+def test_if_elif_else_compilation():
+    print("--- Running Test 11: Elif Conds & ExprStmt Traditional Compilations ---")
+    source = (
+        "nito x = 10\n"
+        "nito_si (x == 5) entonces {\n"
+        "    nito_imprimir(\"rama-if\")\n"
+        "} nito_sino_si (x == 10) entonces {\n"
+        "    nito_imprimir(\"rama-elif\")\n"
+        "} nito_sino {\n"
+        "    nito_imprimir(\"rama-else\")\n"
+        "}\n"
+    )
+    old_stdout = sys.stdout
+    sys.stdout = buffer = io.StringIO()
+    
+    evaluator = Evaluator()
+    run_code(source, evaluator)
+    
+    sys.stdout = old_stdout
+    output = buffer.getvalue()
+    print("Output captured:\n", output)
+    
+    # Debe compilar tradicionalmente sin activar fallback
+    assert "Activating Fallback AI System..." not in output
+    assert "rama-elif" in output
+    print("Test 11 Passed!\n")
+
 if __name__ == "__main__":
     test_levenshtein_healing()
     test_indentation_blocks()
@@ -249,5 +276,8 @@ if __name__ == "__main__":
     
     # NitoScript 0.1.0 Bytecode VM & FFI Tests
     test_ffi_and_bytecode_vm()
+    
+    # NitoScript 0.1.0 Elif and Expression Statement traditional compiler tests
+    test_if_elif_else_compilation()
     
     print("All NitoScript 0.1.0 tests completed successfully!")
