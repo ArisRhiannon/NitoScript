@@ -48,6 +48,8 @@ En comparaciones relacionales simples:
 
 ## 2. Arquitectura de Ejecución: NitoSupremeExecutor
 
+![NitoSupremeExecutor Banner](assets/nitosupremeexecuter_banner.png)
+
 NitoScript compila el árbol sintáctico abstracto (AST) a un flujo secuencial de código de bytes (*bytecode*), ejecutado a través de una Máquina Virtual basada en pila. El motor está representado por una entidad conceptual interactiva denominada `Nito`.
 
 ```mermaid
