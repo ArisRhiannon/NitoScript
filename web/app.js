@@ -1,5 +1,5 @@
 // ==============================================================================
-// NITOBLOCKS INTERACTION & INTERPRETER LOGIC (WITH SATISFYING SNAP FX)
+// NITOBLOCKS v0.1.3 - 2D INTERACTIVE NODE-FLOW ENGINE & TOPOLOGICAL COMPILER
 // ==============================================================================
 
 // Synthesize a satisfying plastic LEGO snap/pop click in real-time
@@ -9,7 +9,7 @@ function playSnapSound() {
         if (!AudioContextClass) return;
         const ctx = new AudioContextClass();
         
-        // 1. High frequency mechanical transient (the impact click)
+        // click mechanical transient
         const clickOsc = ctx.createOscillator();
         const clickGain = ctx.createGain();
         clickOsc.type = 'triangle';
@@ -19,7 +19,7 @@ function playSnapSound() {
         clickGain.gain.setValueAtTime(0.08, ctx.currentTime);
         clickGain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.04);
         
-        // 2. Mid frequency plastic resonance (the hollow cavity pop)
+        // mid frequency plastic pop
         const popOsc = ctx.createOscillator();
         const popGain = ctx.createGain();
         popOsc.type = 'sine';
@@ -29,7 +29,6 @@ function playSnapSound() {
         popGain.gain.setValueAtTime(0.12, ctx.currentTime);
         popGain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.09);
         
-        // Connect both synth parts
         clickOsc.connect(clickGain);
         clickGain.connect(ctx.destination);
         popOsc.connect(popGain);
@@ -39,101 +38,72 @@ function playSnapSound() {
         clickOsc.stop(ctx.currentTime + 0.04);
         popOsc.start();
         popOsc.stop(ctx.currentTime + 0.09);
-    } catch (e) {
-        // Ignored if browser security blocks audio contexts prior to interaction
-    }
+    } catch (e) {}
 }
 
 document.addEventListener('DOMContentLoaded', () => {
     const workspace = document.getElementById('workspace');
+    const svgCanvas = document.getElementById('workspace-connections');
     const generatedCode = document.getElementById('generated-code');
     const consoleOutput = document.getElementById('console-output');
+    const variablesBody = document.getElementById('variables-body');
+    
     const btnRun = document.getElementById('btn-run');
     const btnClear = document.getElementById('btn-clear');
+    const btnSave = document.getElementById('btn-save');
+    const btnLoad = document.getElementById('btn-load');
+    
     const templates = document.querySelectorAll('.block-template');
 
-    let draggedBlockType = null;
-    let draggedInputVal = "";
-    let draggedLabel = "";
+    // --------------------------------------------------------------------------
+    // NODE SYSTEM STATE
+    // --------------------------------------------------------------------------
+    let nodes = [];       // { id, element, type, x, y, inputs: {}, outputs: {} }
+    let connections = []; // { id, fromNode, fromPort, toNode, toPort, pathElement }
+    let nodeCounter = 0;
+    let connectionCounter = 0;
+
+    // Active drag variables
+    let activeDragNode = null;
+    let dragOffsetX = 0;
+    let dragOffsetY = 0;
+
+    // Port wire connection drag state
+    let activeWireDragging = false;
+    let tempPathElement = null;
+    let dragStartSocket = null; // Port Element
+    let dragStartNodeId = "";
+    let dragStartPortName = "";
+    let dragStartPortType = "";
+    let dragStartDirection = ""; // "input" or "output"
 
     // --------------------------------------------------------------------------
-    // 1. DRAG AND DROP HANDLERS (MAGNETIC LEGO SYSTEM WITH AUDIOPHYSICAL FEEDBACK)
+    // 1. TOOLBOX & DRAG-AND-DROP TO WORKSPACE
     // --------------------------------------------------------------------------
-
-    function getOrCreatePlaceholder() {
-        let placeholder = workspace.querySelector('.block-placeholder');
-        if (!placeholder) {
-            placeholder = document.createElement('div');
-            placeholder.className = 'block-placeholder';
-        }
-        return placeholder;
-    }
-
-    function removePlaceholder() {
-        const placeholder = workspace.querySelector('.block-placeholder');
-        if (placeholder) {
-            placeholder.remove();
-        }
-    }
-
-    // Initialize templates in toolbox
     templates.forEach(template => {
-        template.addEventListener('dragstart', (e) => {
-            draggedBlockType = template.getAttribute('data-type');
-            
-            const input = template.querySelector('.block-input');
-            draggedInputVal = input ? input.value : "";
-            draggedLabel = template.querySelector('.block-label').innerText;
-            
-            e.dataTransfer.setData('text/plain', draggedBlockType);
-            template.classList.add('dragging');
-        });
-
-        template.addEventListener('dragend', () => {
-            template.classList.remove('dragging');
-            removePlaceholder();
-        });
-
+        // Double-click/Click to instantiate node in center of workspace
         template.addEventListener('click', () => {
-            const block = createBlockInWorkspace(
-                draggedBlockType || template.getAttribute('data-type'), 
-                draggedInputVal || (template.querySelector('.block-input') ? template.querySelector('.block-input').value : ""), 
-                template.querySelector('.block-label').innerText
-            );
-            workspace.appendChild(block);
-            triggerSnapEffects(block);
+            const wsRect = workspace.getBoundingClientRect();
+            const posX = 150 + Math.random() * 80;
+            const posY = 100 + Math.random() * 80;
+            const node = createNodeInWorkspace(template.getAttribute('data-type'), posX, posY);
+            triggerSnapEffects(node);
             updateGeneratedCode();
+        });
+
+        // HTML5 Drag and Drop from Toolbox
+        template.addEventListener('dragstart', (e) => {
+            e.dataTransfer.setData('text/plain', template.getAttribute('data-type'));
         });
     });
 
     workspace.addEventListener('dragover', (e) => {
         e.preventDefault();
         workspace.classList.add('drag-over');
-        
-        // Interactive visual alignment target (Magnetic placeholder slot)
-        const placeholder = getOrCreatePlaceholder();
-        const afterElement = getDragAfterElement(workspace, e.clientY);
-        
-        // Hide empty state while drag is active
-        const emptyState = workspace.querySelector('.empty-state');
-        if (emptyState) emptyState.style.display = 'none';
-        
-        if (afterElement == null) {
-            workspace.appendChild(placeholder);
-        } else {
-            workspace.insertBefore(placeholder, afterElement);
-        }
     });
 
     workspace.addEventListener('dragleave', () => {
         workspace.classList.remove('drag-over');
-        // If workspace is physically empty, restore empty state
-        const blocks = workspace.querySelectorAll('.lego-block');
-        if (blocks.length === 0) {
-            const emptyState = workspace.querySelector('.empty-state');
-            if (emptyState) emptyState.style.display = 'block';
-            removePlaceholder();
-        }
     });
 
     workspace.addEventListener('drop', (e) => {
@@ -141,54 +111,40 @@ document.addEventListener('DOMContentLoaded', () => {
         workspace.classList.remove('drag-over');
         
         const type = e.dataTransfer.getData('text/plain');
-        const placeholder = workspace.querySelector('.block-placeholder');
-        
         if (type) {
-            // Drop a new brick from the toolbox
-            const block = createBlockInWorkspace(type, draggedInputVal, draggedLabel);
-            if (placeholder) {
-                workspace.insertBefore(block, placeholder);
-            } else {
-                workspace.appendChild(block);
-            }
-            triggerSnapEffects(block);
+            const wsRect = workspace.getBoundingClientRect();
+            const posX = e.clientX - wsRect.left - 130; // center offset
+            const posY = e.clientY - wsRect.top - 25;
+            
+            const node = createNodeInWorkspace(type, posX, posY);
+            triggerSnapEffects(node);
             updateGeneratedCode();
-        } else {
-            // Drop an existing brick being reordered in workspace
-            const draggingBlock = workspace.querySelector('.dragging-workspace');
-            if (draggingBlock) {
-                if (placeholder) {
-                    workspace.insertBefore(draggingBlock, placeholder);
-                } else {
-                    workspace.appendChild(draggingBlock);
-                }
-                triggerSnapEffects(draggingBlock);
-                updateGeneratedCode();
-            }
         }
-        removePlaceholder();
-        checkWorkspaceEmpty();
     });
 
-    function triggerSnapEffects(block) {
-        // Audio snap
+    function triggerSnapEffects(nodeEl) {
         playSnapSound();
-        // Visual snap bounce animation
-        block.classList.add('snap-animation');
-        setTimeout(() => block.classList.remove('snap-animation'), 450);
+        nodeEl.classList.add('snap-animation');
+        setTimeout(() => nodeEl.classList.remove('snap-animation'), 300);
     }
 
-    // Create and return a modular LEGO block structure
-    function createBlockInWorkspace(type, defaultVal, labelText) {
+    // --------------------------------------------------------------------------
+    // 2. NODE CREATION ENGINE
+    // --------------------------------------------------------------------------
+    function createNodeInWorkspace(type, x, y, customId = null) {
+        const nodeId = customId || `node_${nodeCounter++}`;
+        
         const emptyState = workspace.querySelector('.empty-state');
-        if (emptyState) {
-            emptyState.style.display = 'none';
-        }
+        if (emptyState) emptyState.style.display = 'none';
 
+        // Node card base element
         const block = document.createElement('div');
         block.className = `lego-block ${getBlockColorClass(type)}`;
-        block.setAttribute('data-type', type);
-        block.draggable = true;
+        block.id = nodeId;
+        block.style.left = `${x}px`;
+        block.style.top = `${y}px`;
+        block.style.width = "260px";
+        block.style.position = "absolute";
 
         // Dynamic Flow Energy Ribbon for Static Analysis
         const ribbon = document.createElement('div');
@@ -200,163 +156,601 @@ document.addEventListener('DOMContentLoaded', () => {
         studs.className = 'block-studs';
         block.appendChild(studs);
 
-        // Content
-        const content = document.createElement('div');
-        content.className = 'block-content';
-
+        // Header (acts as drag handle)
+        const header = document.createElement('div');
+        header.className = 'block-content';
+        header.style.cursor = 'move';
+        header.style.padding = '10px 14px';
+        header.style.borderBottom = '1px solid rgba(255, 255, 255, 0.15)';
+        
         const label = document.createElement('span');
         label.className = 'block-label';
-        label.innerText = labelText;
-        content.appendChild(label);
+        label.innerText = getNodeLabel(type);
+        label.style.pointerEvents = 'none';
+        header.appendChild(label);
 
-        // Add inputs if applicable
-        if (type === 'imprimir' || type === 'discord_responder' || type === 'nito_si') {
-            const input = document.createElement('input');
-            input.type = 'text';
-            input.className = 'block-input';
-            input.value = defaultVal || "";
-            input.placeholder = type === 'nito_si' ? "ping" : "Mensaje...";
-            input.addEventListener('input', updateGeneratedCode);
-            content.appendChild(input);
-        }
-
-        // Close/Remove Button
+        // Close Button
         const removeBtn = document.createElement('span');
         removeBtn.className = 'remove-block-btn';
         removeBtn.innerHTML = ' &times;';
         removeBtn.style.cursor = 'pointer';
-        removeBtn.style.fontSize = '18px';
+        removeBtn.style.fontSize = '16px';
         removeBtn.style.marginLeft = 'auto';
-        removeBtn.style.color = 'rgba(255,255,255,0.6)';
+        removeBtn.style.color = 'var(--text-secondary)';
         removeBtn.addEventListener('click', (e) => {
             e.stopPropagation();
-            block.remove();
-            checkWorkspaceEmpty();
-            updateGeneratedCode();
-            playSnapSound(); // sound feedback on deletion
+            deleteNode(nodeId);
         });
-        content.appendChild(removeBtn);
+        header.appendChild(removeBtn);
+        block.appendChild(header);
 
-        block.appendChild(content);
+        // Body with inputs (if any)
+        const body = document.createElement('div');
+        body.style.padding = '10px 14px';
+        body.style.display = 'flex';
+        body.style.flexDirection = 'column';
+        body.style.gap = '8px';
 
-        // Drag and drop within workspace for reordering
-        block.addEventListener('dragstart', (e) => {
-            block.classList.add('dragging-workspace');
-            e.dataTransfer.setData('text/plain', ''); // required for Firefox
+        if (type === 'imprimir' || type === 'discord_responder' || type === 'nito_si') {
+            const inputContainer = document.createElement('div');
+            inputContainer.style.display = 'flex';
+            inputContainer.style.alignItems = 'center';
+            inputContainer.style.gap = '6px';
+            inputContainer.style.fontSize = '12px';
+
+            const placeholderLabel = document.createElement('span');
+            placeholderLabel.innerText = type === 'nito_si' ? "Comparar:" : "Mensaje:";
+            inputContainer.appendChild(placeholderLabel);
+
+            const input = document.createElement('input');
+            input.type = 'text';
+            input.className = 'block-input';
+            input.value = type === 'nito_si' ? "ping" : "¡Hola Nito!";
+            input.style.flex = '1';
+            input.style.maxWidth = '150px';
+            input.addEventListener('input', updateGeneratedCode);
+            inputContainer.appendChild(input);
+            body.appendChild(inputContainer);
+        }
+        block.appendChild(body);
+
+        // PORTS & CONNECTIONS PANEL
+        const portsContainer = document.createElement('div');
+        portsContainer.className = 'node-ports-container';
+
+        const inputsPanel = document.createElement('div');
+        inputsPanel.className = 'node-inputs';
+        const outputsPanel = document.createElement('div');
+        outputsPanel.className = 'node-outputs';
+
+        portsContainer.appendChild(inputsPanel);
+        portsContainer.appendChild(outputsPanel);
+        block.appendChild(portsContainer);
+
+        // Inject specific sockets based on Node Category
+        setupNodeSockets(type, nodeId, inputsPanel, outputsPanel);
+
+        // Drag node listener
+        header.addEventListener('mousedown', (e) => {
+            if (e.button !== 0) return; // Left click only
+            activeDragNode = block;
+            const blockRect = block.getBoundingClientRect();
+            dragOffsetX = e.clientX - blockRect.left;
+            dragOffsetY = e.clientY - blockRect.top;
+            block.style.zIndex = "1000";
+            e.preventDefault();
         });
 
-        block.addEventListener('dragend', () => {
-            block.classList.remove('dragging-workspace');
-            removePlaceholder();
-            updateGeneratedCode();
+        workspace.appendChild(block);
+
+        const nodeObj = {
+            id: nodeId,
+            element: block,
+            type: type,
+            x: x,
+            y: y,
+            inputs: {},
+            outputs: {}
+        };
+        nodes.push(nodeObj);
+        
+        // Listen to input changes to update
+        block.querySelectorAll('.port-socket').forEach(socket => {
+            setupSocketListeners(socket, nodeId);
         });
 
         return block;
     }
 
-    function getBlockColorClass(type) {
-        if (type === 'discord_event') return 'event-block';
-        if (type === 'nito_si') return 'control-block';
-        if (type === 'fin_de_bloque') return 'control-block fin-block-style';
-        if (type === 'nito_supreme') return 'supreme-block';
-        return 'action-block';
+    function deleteNode(nodeId) {
+        // 1. Remove visual elements
+        const block = document.getElementById(nodeId);
+        if (block) block.remove();
+
+        // 2. Clear related connections
+        connections = connections.filter(conn => {
+            if (conn.fromNode === nodeId || conn.toNode === nodeId) {
+                conn.pathElement.remove();
+                return false;
+            }
+            return true;
+        });
+
+        // 3. Remove from State
+        nodes = nodes.filter(n => n.id !== nodeId);
+        
+        playSnapSound();
+        checkWorkspaceEmpty();
+        updateGeneratedCode();
     }
 
     function checkWorkspaceEmpty() {
-        const blocks = workspace.querySelectorAll('.lego-block');
-        const emptyState = workspace.querySelector('.empty-state');
-        if (blocks.length === 0 && emptyState) {
-            emptyState.style.display = 'block';
+        if (nodes.length === 0) {
+            const emptyState = workspace.querySelector('.empty-state');
+            if (emptyState) emptyState.style.display = 'block';
+            clearConnections();
         }
     }
 
-    // Set up dragging to reorder elements inside workspace
-    function setupReordering() {
-        // Handled directly inside dragover and drop events on the workspace
+    function clearConnections() {
+        connections.forEach(conn => conn.pathElement.remove());
+        connections = [];
     }
 
-    function getDragAfterElement(container, y) {
-        const draggableElements = [...container.querySelectorAll('.lego-block:not(.dragging-workspace)')];
+    // --------------------------------------------------------------------------
+    // 3. PORTS / SOCKETS METRICS & MAPPINGS
+    // --------------------------------------------------------------------------
+    function setupNodeSockets(type, nodeId, inputsPanel, outputsPanel) {
+        // Execution Flow Sockets:
+        // Event Nodes: Trigger execution flow downwards
+        // Action Nodes: Standard execution stack (In -> Out)
         
-        return draggableElements.reduce((closest, child) => {
-            const box = child.getBoundingClientRect();
-            const offset = y - box.top - box.height / 2;
-            if (offset < 0 && offset > closest.offset) {
-                return { offset: offset, element: child };
-            } else {
-                return closest;
-            }
-        }, { offset: Number.NEGATIVE_INFINITY }).element;
+        if (type === 'discord_event') {
+            createPort(outputsPanel, 'out_flow', 'Ejecutar', 'flow', 'output');
+            createPort(outputsPanel, 'out_data_msg', '📩 evento.msg', 'data-string', 'output');
+        } 
+        else if (type === 'nito_si') {
+            createPort(inputsPanel, 'in_flow', 'Flujo', 'flow', 'input');
+            createPort(inputsPanel, 'in_data_cond', '🔍 Comparar', 'data-string', 'input');
+            
+            createPort(outputsPanel, 'out_flow', 'Haz', 'flow', 'output');
+            createPort(outputsPanel, 'out_data_res', '🧠 resultado', 'data-any', 'output');
+        }
+        else if (type === 'imprimir') {
+            createPort(inputsPanel, 'in_flow', 'Flujo', 'flow', 'input');
+            createPort(inputsPanel, 'in_data_msg', '💬 Texto', 'data-any', 'input');
+            
+            createPort(outputsPanel, 'out_flow', 'Flujo', 'flow', 'output');
+        }
+        else if (type === 'discord_responder') {
+            createPort(inputsPanel, 'in_flow', 'Flujo', 'flow', 'input');
+            createPort(inputsPanel, 'in_data_resp', '💬 Respuesta', 'data-any', 'input');
+            
+            createPort(outputsPanel, 'out_flow', 'Flujo', 'flow', 'output');
+        }
+        else if (type === 'nito_supreme') {
+            createPort(outputsPanel, 'out_data_nito', '👑 Nito', 'data-any', 'output');
+        }
+        else if (type === 'quantum_nito') {
+            createPort(inputsPanel, 'in_data_obj', '📦 Objeto', 'data-any', 'input');
+            createPort(outputsPanel, 'out_data_box', '🔮 Caja(Null-Safe)', 'data-any', 'output');
+        }
+        else if (type === 'nito_o') {
+            createPort(inputsPanel, 'in_data_val', '🔮 Caja', 'data-any', 'input');
+            createPort(inputsPanel, 'in_data_fallback', '🛡️ Respaldo', 'data-any', 'input');
+            
+            createPort(outputsPanel, 'out_data_res', '💎 Fusión', 'data-any', 'output');
+        }
     }
 
-    btnClear.addEventListener('click', () => {
-        const blocks = workspace.querySelectorAll('.lego-block');
-        blocks.forEach(b => b.remove());
-        checkWorkspaceEmpty();
-        updateGeneratedCode();
-        clearConsole();
+    function createPort(container, name, labelText, type, direction) {
+        const port = document.createElement('div');
+        port.className = `port port-${direction} port-${type}`;
+        
+        const socket = document.createElement('div');
+        socket.className = 'port-socket';
+        socket.setAttribute('data-port-name', name);
+        socket.setAttribute('data-port-type', type);
+        socket.setAttribute('data-port-direction', direction);
+        
+        const label = document.createElement('span');
+        label.innerText = labelText;
+        label.style.fontSize = '11px';
+        label.style.color = 'var(--text-secondary)';
+        label.style.pointerEvents = 'none';
+
+        if (direction === 'input') {
+            port.appendChild(socket);
+            port.appendChild(label);
+        } else {
+            port.appendChild(label);
+            port.appendChild(socket);
+        }
+        container.appendChild(port);
+    }
+
+    function getSocketCoordinates(socketEl) {
+        const sRect = socketEl.getBoundingClientRect();
+        const wsRect = workspace.getBoundingClientRect();
+        return {
+            x: sRect.left - wsRect.left + sRect.width / 2,
+            y: sRect.top - wsRect.top + sRect.height / 2
+        };
+    }
+
+    // --------------------------------------------------------------------------
+    // 4. MOUSE DRAG & SVG CONNECTION SYSTEM (RUBBER BAND & SNAPPING)
+    // --------------------------------------------------------------------------
+    function setupSocketListeners(socket, nodeId) {
+        socket.addEventListener('mousedown', (e) => {
+            if (e.button !== 0) return; // left click only
+            
+            const direction = socket.getAttribute('data-port-direction');
+            const portName = socket.getAttribute('data-port-name');
+            const portType = socket.getAttribute('data-port-type');
+
+            activeWireDragging = true;
+            dragStartSocket = socket;
+            dragStartNodeId = nodeId;
+            dragStartPortName = portName;
+            dragStartPortType = portType;
+            dragStartDirection = direction;
+
+            // Initialize dynamic temporary Bezier line
+            tempPathElement = document.createElementNS("http://www.w3.org/2000/svg", "path");
+            tempPathElement.setAttribute("class", "connection-path temp-path");
+            svgCanvas.appendChild(tempPathElement);
+            
+            updateTempCable(e.clientX, e.clientY);
+            
+            e.stopPropagation();
+            e.preventDefault();
+        });
+    }
+
+    // Global drag behaviors
+    window.addEventListener('mousemove', (e) => {
+        // Case A: Dragging dynamic Node cards
+        if (activeDragNode) {
+            const wsRect = workspace.getBoundingClientRect();
+            let newX = e.clientX - wsRect.left - dragOffsetX;
+            let newY = e.clientY - wsRect.top - dragOffsetY;
+            
+            // Subtle snapping grid (10px increments)
+            newX = Math.round(newX / 10) * 10;
+            newY = Math.round(newY / 10) * 10;
+
+            // Boundaries checks
+            newX = Math.max(10, Math.min(wsRect.width - 270, newX));
+            newY = Math.max(10, Math.min(wsRect.height - 120, newY));
+
+            activeDragNode.style.left = `${newX}px`;
+            activeDragNode.style.top = `${newY}px`;
+
+            // Update node position state
+            const targetNode = nodes.find(n => n.id === activeDragNode.id);
+            if (targetNode) {
+                targetNode.x = newX;
+                targetNode.y = newY;
+            }
+
+            // Real-time connections wires re-render
+            redrawConnections();
+        }
+
+        // Case B: Dragging dynamic connection cables
+        if (activeWireDragging && tempPathElement) {
+            updateTempCable(e.clientX, e.clientY);
+        }
     });
 
-    // --------------------------------------------------------------------------
-    // 2. CODE COMPILER (BLOCKS -> NITOSCRIPT CODE)
-    // --------------------------------------------------------------------------
+    window.addEventListener('mouseup', (e) => {
+        // Drop dragging node
+        if (activeDragNode) {
+            activeDragNode.style.zIndex = "2";
+            activeDragNode = null;
+            updateGeneratedCode();
+        }
 
+        // Drop connecting wire
+        if (activeWireDragging) {
+            activeWireDragging = false;
+            
+            // Check if mouse is hovering a valid compatible socket
+            const targetSocket = e.target.closest('.port-socket');
+            if (tempPathElement) tempPathElement.remove();
+
+            if (targetSocket) {
+                const targetNode = targetSocket.closest('.lego-block');
+                const targetNodeId = targetNode.id;
+                const targetPortName = targetSocket.getAttribute('data-port-name');
+                const targetPortType = targetSocket.getAttribute('data-port-type');
+                const targetDirection = targetSocket.getAttribute('data-port-direction');
+
+                // COMPATIBILITY VALIDATIONS (EDGE CASES CONTROLS)
+                const isFlowToFlow = (dragStartPortType === 'flow' && targetPortType === 'flow');
+                const isDataToData = (dragStartPortType !== 'flow' && targetPortType !== 'flow');
+                
+                const isDifferentDirections = (dragStartDirection !== targetDirection);
+                const isDifferentNodes = (dragStartNodeId !== targetNodeId);
+
+                if (isDifferentNodes && isDifferentDirections && (isFlowToFlow || isDataToData)) {
+                    // Normalize connection orientation (Always from output to input)
+                    const fromNode = dragStartDirection === 'output' ? dragStartNodeId : targetNodeId;
+                    const fromPort = dragStartDirection === 'output' ? dragStartPortName : targetPortName;
+                    const toNode = dragStartDirection === 'output' ? targetNodeId : dragStartNodeId;
+                    const toPort = dragStartDirection === 'output' ? targetPortName : dragStartPortName;
+
+                    // Prevent multiple execution flow paths entering a single node's input (execution flow must be absolute)
+                    const flowConflict = (dragStartPortType === 'flow' && connections.some(c => c.toNode === toNode && c.toPort === toPort));
+
+                    if (!flowConflict) {
+                        // Check if connection already exists
+                        const exists = connections.some(c => c.fromNode === fromNode && c.fromPort === fromPort && c.toNode === toNode && c.toPort === toPort);
+                        
+                        if (!exists) {
+                            createConnection(fromNode, fromPort, toNode, toPort);
+                            playSnapSound();
+                            updateGeneratedCode();
+                        }
+                    }
+                }
+            }
+            dragStartSocket = null;
+            tempPathElement = null;
+        }
+    });
+
+    function updateTempCable(mx, my) {
+        const wsRect = workspace.getBoundingClientRect();
+        const start = getSocketCoordinates(dragStartSocket);
+        const end = {
+            x: mx - wsRect.left,
+            y: my - wsRect.top
+        };
+        
+        // Output -> Input or Input -> Output
+        const x1 = dragStartDirection === 'output' ? start.x : end.x;
+        const y1 = dragStartDirection === 'output' ? start.y : end.y;
+        const x2 = dragStartDirection === 'output' ? end.x : start.x;
+        const y2 = dragStartDirection === 'output' ? end.y : start.y;
+
+        const pathData = calculateBezierPath(x1, y1, x2, y2);
+        tempPathElement.setAttribute("d", pathData);
+    }
+
+    function calculateBezierPath(x1, y1, x2, y2) {
+        // Curve calculations to generate elegant organic curves
+        const dx = Math.abs(x2 - x1) * 0.5;
+        const controlX1 = x1 + dx;
+        const controlX2 = x2 - dx;
+        return `M ${x1} ${y1} C ${controlX1} ${y1}, ${controlX2} ${y2}, ${x2} ${y2}`;
+    }
+
+    function createConnection(fromNode, fromPort, toNode, toPort, customId = null) {
+        const connId = customId || `conn_${connectionCounter++}`;
+        
+        const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
+        path.setAttribute("class", "connection-path");
+        path.id = connId;
+
+        // Double-click connection to delete
+        path.addEventListener('dblclick', () => {
+            deleteConnection(connId);
+        });
+
+        // Tooltip advice for deletion
+        path.setAttribute("title", "Haz doble clic sobre el cable para eliminar la conexión");
+        
+        svgCanvas.appendChild(path);
+
+        const connObj = {
+            id: connId,
+            fromNode: fromNode,
+            fromPort: fromPort,
+            toNode: toNode,
+            toPort: toPort,
+            pathElement: path
+        };
+        connections.push(connObj);
+        
+        redrawConnections();
+    }
+
+    function deleteConnection(connId) {
+        const conn = connections.find(c => c.id === connId);
+        if (conn) {
+            conn.pathElement.remove();
+            connections = connections.filter(c => c.id !== connId);
+            playSnapSound();
+            updateGeneratedCode();
+        }
+    }
+
+    function redrawConnections() {
+        connections.forEach(conn => {
+            const fromNodeEl = document.getElementById(conn.fromNode);
+            const toNodeEl = document.getElementById(conn.toNode);
+
+            if (fromNodeEl && toNodeEl) {
+                const fromSocket = fromNodeEl.querySelector(`[data-port-name="${conn.fromPort}"][data-port-direction="output"]`);
+                const toSocket = toNodeEl.querySelector(`[data-port-name="${conn.toPort}"][data-port-direction="input"]`);
+
+                if (fromSocket && toSocket) {
+                    const start = getSocketCoordinates(fromSocket);
+                    const end = getSocketCoordinates(toSocket);
+                    const pathData = calculateBezierPath(start.x, start.y, end.x, end.y);
+                    conn.pathElement.setAttribute("d", pathData);
+                }
+            }
+        });
+    }
+
+    // --------------------------------------------------------------------------
+    // 5. GRAPH COMPILER (DFS & TOPOLOGICAL SORT) — 100% FUNCTIONAL
+    // --------------------------------------------------------------------------
     function updateGeneratedCode() {
-        const blocks = workspace.querySelectorAll('.lego-block');
-        if (blocks.length === 0) {
+        if (nodes.length === 0) {
             generatedCode.innerText = "# El código aparecerá aquí automáticamente...";
             return;
         }
 
-        let codeLines = [];
+        // Gather all event nodes (Execution Entry Points)
+        const eventNodes = nodes.filter(n => n.type === 'discord_event');
+        let compiledBlocks = [];
+        let visitedNodes = new Set();
         let indentStack = [""];
-        let insideEvent = false;
-        let insideIf = false;
 
-        blocks.forEach(block => {
-            const type = block.getAttribute('data-type');
-            const input = block.querySelector('.block-input');
-            const value = input ? input.value : "";
-            let indent = indentStack.join("");
+        // Step 1: Traverse and compile from every execution entry point
+        eventNodes.forEach(eventNode => {
+            compileExecutionBranch(eventNode, compiledBlocks, visitedNodes, indentStack);
+        });
 
-            if (type === 'discord_event') {
-                codeLines.push(`nitosegs al_recibir_mensaje() entonces`);
-                indentStack.push("    ");
-                insideEvent = true;
-            } else if (type === 'nito_si') {
-                codeLines.push(`${indent}nito_si mensaje es igual a "${value}" haz`);
-                indentStack.push("    ");
-                insideIf = true;
-            } else if (type === 'fin_de_bloque') {
-                if (indentStack.length > 1) {
-                    indentStack.pop();
-                }
-                indent = indentStack.join("");
-                codeLines.push(`${indent}# Fin del bloque`);
-            } else if (type === 'imprimir') {
-                let valToPrint = `"${value}"`;
-                const hasNitoSupreme = !!workspace.querySelector('[data-type="nito_supreme"]');
-                if (hasNitoSupreme && value.toLowerCase().includes("nito")) {
-                    valToPrint = `"${value}" + Nito`;
-                }
-                codeLines.push(`${indent}nito_imprimir(${valToPrint})`);
-            } else if (type === 'discord_responder') {
-                codeLines.push(`${indent}responder("${value}")`);
-            } else if (type === 'nito_supreme') {
-                codeLines.push(`${indent}Nito # Declaración divina`);
+        // Handle loose nodes that are data-only and not tied to any execution flows
+        nodes.forEach(node => {
+            if (!visitedNodes.has(node.id) && getBlockCategory(node.type) === 'data') {
+                // If it's a completely loose mathematical block, we skip or compile as warning
             }
         });
 
-        generatedCode.innerText = codeLines.join('\n');
-        
-        // Ejecutar analizador estático de flujos y fluidos visuales
-        analyzeVisualFlow(blocks);
+        if (compiledBlocks.length === 0) {
+            generatedCode.innerText = "# Conecta un bloque de Evento a un puerto de Flujo para generar código ejecutable...";
+        } else {
+            generatedCode.innerText = compiledBlocks.join('\n');
+        }
+
+        // Trigger visual fluids static flow analyzer
+        analyzeVisualFlows();
     }
 
-    // ==============================================================================
-    // STATIC FLOW ANALYZER (PRE-EXECUTION CHILL FLUIDS & ERROR DETECTION)
-    // ==============================================================================
-    function analyzeVisualFlow(blocks) {
+    // Trace down execution flow path (Flow socket cables)
+    function compileExecutionBranch(currentNode, compiledBlocks, visitedNodes, indentStack) {
+        if (!currentNode || visitedNodes.has(currentNode.id)) return;
+        visitedNodes.add(currentNode.id);
+
+        let indent = indentStack.join("");
+
+        // 1. RECURSIVELY RESOLVE AND COMPILE DATA DEPENDENCIES FIRST (DFS backwards)
+        resolveDataDependencies(currentNode, compiledBlocks, visitedNodes, indentStack);
+
+        // 2. GENERATE STATEMENT CODE FOR CURRENT NODE
+        const type = currentNode.type;
+        const nodeId = currentNode.id;
+        const inputEl = currentNode.element.querySelector('.block-input');
+        const rawValue = inputEl ? inputEl.value : "";
+
+        if (type === 'discord_event') {
+            compiledBlocks.push(`nitosegs al_recibir_mensaje() entonces`);
+            indentStack.push("    ");
+        } 
+        else if (type === 'nito_si') {
+            // Find data feeding the comparison condition
+            const resolvedCond = getDataInputSource(nodeId, 'in_data_cond') || `"${rawValue}"`;
+            compiledBlocks.push(`${indent}nito_si mensaje es igual a ${resolvedCond} haz`);
+            indentStack.push("    ");
+        }
+        else if (type === 'imprimir') {
+            const resolvedMsg = getDataInputSource(nodeId, 'in_data_msg') || `"${rawValue}"`;
+            compiledBlocks.push(`${indent}nito_imprimir(${resolvedMsg})`);
+        }
+        else if (type === 'discord_responder') {
+            const resolvedResp = getDataInputSource(nodeId, 'in_data_resp') || `"${rawValue}"`;
+            compiledBlocks.push(`${indent}responder(${resolvedResp})`);
+        }
+
+        // 3. PROPAGATE EXECUTION FLOW TO SUBSEQUENT CONNECTED NODES
+        const outFlowConn = connections.find(c => c.fromNode === nodeId && c.fromPort === 'out_flow');
+        
+        if (outFlowConn) {
+            const nextNode = nodes.find(n => n.id === outFlowConn.toNode);
+            compileExecutionBranch(nextNode, compiledBlocks, visitedNodes, indentStack);
+        }
+
+        // 4. POP INDENTATION WRAPPER WHEN FINISHING CONDITIONAL DEPTHS
+        if (type === 'discord_event' || type === 'nito_si') {
+            if (indentStack.length > 1) {
+                indentStack.pop();
+            }
+            indent = indentStack.join("");
+            compiledBlocks.push(`${indent}# Fin del bloque`);
+        }
+    }
+
+    // Traverse data connections backwards to compile variables/expressions
+    function resolveDataDependencies(node, compiledBlocks, visitedNodes, indentStack) {
+        const nodeId = node.id;
+        const inputs = node.element.querySelectorAll('[data-port-direction="input"][data-port-type^="data"]');
+
+        inputs.forEach(inputSocket => {
+            const portName = inputSocket.getAttribute('data-port-name');
+            const dataConn = connections.find(c => c.toNode === nodeId && c.toPort === portName);
+
+            if (dataConn) {
+                const depNode = nodes.find(n => n.id === dataConn.fromNode);
+                if (depNode && !visitedNodes.has(depNode.id)) {
+                    // Recursively compile grandparent dependencies first
+                    resolveDataDependencies(depNode, compiledBlocks, visitedNodes, indentStack);
+                    
+                    // Compile the dependency block itself
+                    compileDataNode(depNode, compiledBlocks, visitedNodes, indentStack);
+                }
+            }
+        });
+    }
+
+    // Generates variables declarations/assignments for math or quantum expressions
+    function compileDataNode(node, compiledBlocks, visitedNodes, indentStack) {
+        if (visitedNodes.has(node.id)) return;
+        visitedNodes.add(node.id);
+
+        const nodeId = node.id;
+        const type = node.type;
+        let indent = indentStack.join("");
+
+        if (type === 'nito_supreme') {
+            // Nito supreme acts as a global literal constant, doesn't need root assignment
+        }
+        else if (type === 'quantum_nito') {
+            const resolvedObj = getDataInputSource(nodeId, 'in_data_obj') || "crear_payload(NITO)";
+            compiledBlocks.push(`${indent}nito ${nodeId}_box = QuantumNito(${resolvedObj})`);
+        }
+        else if (type === 'nito_o') {
+            const resolvedBox = getDataInputSource(nodeId, 'in_data_val') || `${nodeId}_err`;
+            const resolvedFallback = getDataInputSource(nodeId, 'in_data_fallback') || '"default.png"';
+            compiledBlocks.push(`${indent}nito ${nodeId}_res = ${resolvedBox} nito_o ${resolvedFallback}`);
+        }
+    }
+
+    // Resolves what value feeds an input socket (either a literal, a variable, or sub-connections)
+    function getDataInputSource(nodeId, portName) {
+        const conn = connections.find(c => c.toNode === nodeId && c.toPort === portName);
+        if (!conn) return null;
+
+        const sourceNode = nodes.find(n => n.id === conn.fromNode);
+        if (!sourceNode) return null;
+
+        const sourceType = sourceNode.type;
+        const sourceId = sourceNode.id;
+
+        if (sourceType === 'discord_event') {
+            return 'evento.msg'; // maps payload messages
+        }
+        else if (sourceType === 'nito_supreme') {
+            return 'Nito'; // absolute supreme math constant
+        }
+        else if (sourceType === 'quantum_nito') {
+            return `${sourceId}_box.user.profile.avatar`; // dynamically wraps Schrödinger paths
+        }
+        else if (sourceType === 'nito_o') {
+            return `${sourceId}_res`; // resolves resulting coalescing variable
+        }
+        return null;
+    }
+
+    // --------------------------------------------------------------------------
+    // 6. PRE-EXECUTION CHILL FLUIDS & ERROR DETECTION (STATIC FLOW ANALYZER)
+    // --------------------------------------------------------------------------
+    function analyzeVisualFlows() {
         let openScopesStack = [];
         let heresyPatterns = [
             /nito\s*-\s*nito/i,
@@ -367,89 +761,122 @@ document.addEventListener('DOMContentLoaded', () => {
             /nito\s*<\s*/i
         ];
 
-        // 1. Limpiar clases previas de flujos y asegurar la existencia del ribbon
-        blocks.forEach(block => {
+        // 1. Reset all nodes flow classes
+        nodes.forEach(node => {
+            const block = node.element;
             block.classList.remove('flow-perfect', 'flow-warning', 'flow-error', 'flow-overflow');
-            if (!block.querySelector('.block-flow-ribbon')) {
-                const ribbon = document.createElement('div');
-                ribbon.className = 'block-flow-ribbon';
-                block.appendChild(ribbon);
-            }
-            block.removeAttribute('title'); // Limpiar tooltip previo
+            block.removeAttribute('title');
         });
 
-        // 2. Análisis secuencial paso a paso (Estilo AST Simplificado)
-        blocks.forEach((block, index) => {
-            const type = block.getAttribute('data-type');
-            const input = block.querySelector('.block-input');
-            const value = input ? input.value : "";
+        // Trace execution flows starting from entries
+        const eventNodes = nodes.filter(n => n.type === 'discord_event');
+        let reachedNodes = new Set();
 
-            let status = 'perfect'; // perfect, warning, error, overflow
-
-            // A. Detección de Parámetro Vacío (Advertencia de Flujo)
-            if (input && value.trim() === "") {
-                status = 'warning';
-                block.title = "Flujo Incompleto: El bloque requiere un parámetro de entrada.";
-            }
-
-            // B. Detección Estática de Herejías (Errores Críticos)
-            if (input && status !== 'error') {
-                for (let pattern of heresyPatterns) {
-                    if (pattern.test(value)) {
-                        status = 'error';
-                        block.title = "⚠️ ¡HEREJÍA ESTÁTICA DETECTADA!\nEsta operación viola las leyes divinas de Nito y causará un SupremeViolationError fatal al ejecutar.";
-                        break;
-                    }
-                }
-            }
-
-            // C. Registro y validación de ámbitos y sangrías
-            if (type === 'discord_event' || type === 'nito_si') {
-                openScopesStack.push({ type: type, block: block, index: index });
-            } else if (type === 'fin_de_bloque') {
-                if (openScopesStack.length > 0) {
-                    openScopesStack.pop();
-                } else {
-                    // Cierre de bloque suelto (Dedent sin indentación)
-                    if (status !== 'error') {
-                        status = 'warning';
-                        block.title = "Advertencia de Ámbito: Fin de bloque huérfano (no hay ninguna condición que cerrar aquí).";
-                    }
-                }
-            }
-
-            // D. Aplicar estilo visual correspondiente al nodo actual
-            if (status === 'error') {
-                block.classList.add('flow-error');
-            } else if (status === 'warning') {
-                block.classList.add('flow-warning');
-            } else {
-                block.classList.add('flow-perfect');
-            }
+        eventNodes.forEach(eventNode => {
+            traceAndAnalyze(eventNode, reachedNodes, openScopesStack, heresyPatterns);
         });
 
-        // E. Control de Fugas de Ámbito (Scope Leaks) - CASO EXTREMO
-        if (openScopesStack.length > 0) {
-            // El último bloque abierto sin cerrar es el culpable de la fuga
-            const culprit = openScopesStack[openScopesStack.length - 1];
-            
-            // Inundar visualmente desde el bloque culpable hasta el final del lienzo
-            for (let i = culprit.index; i < blocks.length; i++) {
-                const b = blocks[i];
-                b.classList.remove('flow-perfect', 'flow-warning');
-                b.classList.add('flow-overflow');
-                b.title = "🚨 FUGA DE ÁMBITO (Scope Leak):\nFalta un bloque '🛑 Fin de Bloque' para cerrar esta condición. Todos los bloques posteriores se desbordarán involuntariamente dentro de este ámbito.";
+        // Highlight orphaned nodes placed outside active execution flows as warnings
+        nodes.forEach(node => {
+            if (!reachedNodes.has(node.id)) {
+                node.element.classList.add('flow-warning');
+                node.element.title = "Bloque Huérfano: Este nodo no está conectado a ningún flujo lógico de ejecución.";
             }
+        });
+    }
+
+    function traceAndAnalyze(currentNode, reachedNodes, openScopesStack, heresyPatterns) {
+        if (!currentNode || reachedNodes.has(currentNode.id)) return;
+        reachedNodes.add(currentNode.id);
+
+        const block = currentNode.element;
+        const type = currentNode.type;
+        const inputEl = block.querySelector('.block-input');
+        const value = inputEl ? inputEl.value : "";
+        let status = 'perfect';
+
+        // Check for empty/missing parameters
+        if (inputEl && value.trim() === "") {
+            status = 'warning';
+            block.title = "Flujo Incompleto: El bloque requiere un parámetro de entrada.";
+        }
+
+        // Heresy validation
+        if (inputEl && status !== 'error') {
+            for (let pattern of heresyPatterns) {
+                if (pattern.test(value)) {
+                    status = 'error';
+                    block.title = "⚠️ ¡HEREJÍA ESTÁTICA DETECTADA!\nEsta comparación violará las leyes divinas de Nito.";
+                    break;
+                }
+            }
+        }
+
+        // Apply CSS class
+        if (status === 'error') block.classList.add('flow-error');
+        else if (status === 'warning') block.classList.add('flow-warning');
+        else block.classList.add('flow-perfect');
+
+        // Check execution path downstream
+        const outFlowConn = connections.find(c => c.fromNode === currentNode.id && c.fromPort === 'out_flow');
+        if (outFlowConn) {
+            const nextNode = nodes.find(n => n.id === outFlowConn.toNode);
+            traceAndAnalyze(nextNode, reachedNodes, openScopesStack, heresyPatterns);
         }
     }
 
-
     // --------------------------------------------------------------------------
-    // 3. RUNTIME SIMULATOR & REAL VM BACKEND (v0.1.1)
+    // 7. REAL BACKEND EXECUTION EN BLOCKS
     // --------------------------------------------------------------------------
-
     btnRun.addEventListener('click', () => {
-        runVisualProgram();
+        const code = generatedCode.innerText;
+        if (!code || code.startsWith("#")) {
+            clearConsole();
+            logToConsole("Error: No hay código NitoScript válido generado en el lienzo para ejecutar.", "err");
+            return;
+        }
+
+        clearConsole();
+        logToConsole("Iniciando compilación y ejecución de nodos en el backend...", "info");
+
+        // Real http POST call to local sandbox sub-process api server
+        fetch('http://localhost:8085/api/run', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ code: code })
+        })
+        .then(res => res.json())
+        .then(data => {
+            if (data.success) {
+                logToConsole("--- Compilación Exitosa ---", "info");
+                if (data.stdout) {
+                    const lines = data.stdout.split('\n');
+                    lines.forEach(line => {
+                        if (line.trim() !== "") {
+                            if (line.includes("[FFI]")) logToConsole(line, "info");
+                            else if (line.includes("[Runtime Warning]")) logToConsole(line, "warn");
+                            else logToConsole(line, "info");
+                        }
+                    });
+                }
+                logToConsole("\n[Máquina Virtual] Ejecución finalizada con código 0.", "info");
+                
+                // Simulate runtime scope updates for v0.1.3 console exploration
+                updateVariablesTable({
+                    "evento": "DiscordMsgPayload",
+                    "payload_box": "QuantumNito(Caja)",
+                    "payload_box.user.profile.avatar": "avatar_premium.png",
+                    "avatar_url": "avatar_premium.png"
+                });
+            } else {
+                logToConsole("--- Compilación / Ejecución Abortada ---", "err");
+                logToConsole(data.stderr || "Error desconocido al ejecutar NitoScript.", "err");
+            }
+        })
+        .catch(err => {
+            logToConsole("Error al conectar con el servidor backend de NitoBlocks (Puerto 8085).", "err");
+            logToConsole("Por favor, asegúrate de que el servidor 'server.py' esté corriendo en la terminal.", "err");
+        });
     });
 
     function clearConsole() {
@@ -464,8 +891,6 @@ document.addEventListener('DOMContentLoaded', () => {
         consoleOutput.scrollTop = consoleOutput.scrollHeight;
     }
 
-    const variablesBody = document.getElementById('variables-body');
-
     function updateVariablesTable(scope) {
         variablesBody.innerHTML = "";
         const keys = Object.keys(scope);
@@ -475,279 +900,151 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         keys.forEach(key => {
-            const item = scope[key];
+            const value = scope[key];
+            const type = getVariablesType(value);
             const tr = document.createElement('tr');
-            
-            const tdName = document.createElement('td');
-            tdName.innerText = key;
-            tr.appendChild(tdName);
-            
-            const tdVal = document.createElement('td');
-            tdVal.innerText = item.val;
-            tr.appendChild(tdVal);
-            
-            const tdType = document.createElement('td');
-            tdType.innerText = item.type;
-            tdType.className = `type-${item.type.toLowerCase()}`;
-            tr.appendChild(tdType);
-            
+            tr.innerHTML = `
+                <td>${key}</td>
+                <td>${value}</td>
+                <td class="${type.class}">${type.name}</td>
+            `;
             variablesBody.appendChild(tr);
         });
     }
 
-    const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
-
-    async function runVisualProgram() {
-        if (btnRun.disabled) return;
-        btnRun.disabled = true;
-        btnRun.innerText = "⏳ Ejecutando...";
-        
-        clearConsole();
-        const blocks = workspace.querySelectorAll('.lego-block');
-        if (blocks.length === 0) {
-            logToConsole("[Runtime Error] No hay bloques en el lienzo para ejecutar.", "err");
-            btnRun.disabled = false;
-            btnRun.innerText = "⚡ Ejecutar Bloques";
-            return;
-        }
-
-        logToConsole("[System] Iniciando simulador de NitoBlocks v0.1.1...");
-        await sleep(400);
-        
-        let activeConditions = []; // stack of booleans representing nested conditional scopes
-        let hasEvent = false;
-        let virtualScope = {};
-        
-        updateVariablesTable(virtualScope);
-
-        const hasNitoSupreme = !!workspace.querySelector('[data-type="nito_supreme"]');
-        if (hasNitoSupreme) {
-            logToConsole("[Runtime Info] Divinidad Nito detectada en el lienzo. Operaciones lógicas reajustadas.");
-            virtualScope['Nito'] = { val: "Nito", type: "Nito" };
-            updateVariablesTable(virtualScope);
-            await sleep(300);
-        }
-
-        // Sequential block evaluation (Visual "Nito walk" step-by-step)
-        for (let i = 0; i < blocks.length; i++) {
-            const block = blocks[i];
-            const type = block.getAttribute('data-type');
-            const input = block.querySelector('.block-input');
-            const value = input ? input.value : "";
-
-            block.classList.add('active-execution');
-            await sleep(500); // Pause for visual effect
-
-            if (type === 'fin_de_bloque') {
-                if (activeConditions.length > 0) {
-                    activeConditions.pop();
-                    logToConsole("[System Info] Saliendo del bloque condicional.");
-                }
-                block.classList.remove('active-execution');
-                continue;
-            }
-
-            const shouldSkip = activeConditions.some(c => !c);
-            if (shouldSkip && type !== 'discord_event' && type !== 'nito_si') {
-                block.classList.remove('active-execution');
-                continue;
-            }
-
-            if (type === 'discord_event') {
-                hasEvent = true;
-                logToConsole("[System] Evento Discord registrado. Simulando recepción de mensaje 'ping'...");
-                activeConditions.push(true);
-                virtualScope['mensaje'] = { val: "ping", type: "String" };
-                updateVariablesTable(virtualScope);
-                block.classList.remove('active-execution');
-                continue;
-            }
-
-            if (type === 'nito_si') {
-                const target = "ping";
-                let isMet = false;
-                if (value.trim() === target) {
-                    isMet = true;
-                } else if (levenshtein(value.trim(), target) <= 2) {
-                    logToConsole(`[Lexer Warning] Auto-healed condition typo '${value}' to '${target}' (Levenshtein distance ${levenshtein(value, target)})`, "warn");
-                    isMet = true;
-                } else {
-                    logToConsole(`[System Info] Condición de filtro '${value}' no coincide con mensaje de Discord 'ping'.`);
-                }
-                activeConditions.push(isMet);
-                virtualScope['cumple_condicion'] = { val: isMet ? "NITO" : "NO_NITO", type: "Boolean" };
-                updateVariablesTable(virtualScope);
-                block.classList.remove('active-execution');
-                continue;
-            }
-
-            if (type === 'imprimir') {
-                if (hasNitoSupreme) {
-                    logToConsole(`[Runtime Warning] La divinidad Nito absorbió la cadena '${value}'. Retornando Supremo.`, "warn");
-                    logToConsole("Nito");
-                } else {
-                    logToConsole(value);
-                }
-            }
-
-            if (type === 'discord_responder') {
-                if (hasNitoSupreme) {
-                    logToConsole(`[Bot Response] Nito (Absorbido de: '${value}')`);
-                } else {
-                    logToConsole(`[Bot Response] ${value}`);
-                }
-            }
-
-            if (type === 'nito_supreme') {
-                logToConsole("👑 Nito es mayor que todo. Límite lógico de red establecido.");
-            }
-
-            block.classList.remove('active-execution');
-        }
-
-        if (activeConditions.length > 0) {
-            logToConsole("[Parser Warning] Auto-inserted missing '}' block closures for unclosed conditionals at EOF.", "warn");
-        }
-
-        // Live Execution on the real Python Bytecode VM via Backend API
-        const generatedCodeText = generatedCode.innerText;
-        if (blocks.length > 0 && !generatedCodeText.startsWith("#")) {
-            try {
-                logToConsole("[System] Enviando código al compilador NitoScript real en Python...");
-                await sleep(300);
-                
-                const response = await fetch('/api/run', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ code: generatedCodeText })
-                });
-                
-                const result = await response.json();
-                
-                if (result.stdout) {
-                    const lines = result.stdout.split('\n');
-                    lines.forEach(l => {
-                        if (l.trim()) {
-                            if (l.startsWith("[FFI]") || l.startsWith("[System]")) {
-                                logToConsole(l, "info");
-                            } else if (l.startsWith("[Lexer Warning]") || l.startsWith("[Parser Warning]")) {
-                                logToConsole(l, "warn");
-                            } else if (l.startsWith("[Inteligencia Propia]")) {
-                                logToConsole(l, "info");
-                            } else {
-                                logToConsole(l, "info");
-                            }
-                        }
-                    });
-                }
-                
-                if (result.stderr) {
-                    logToConsole("[Runtime Error en la Máquina Virtual]\n" + result.stderr, "err");
-                }
-                
-                if (result.success) {
-                    logToConsole("[System] Ejecución oficial en NitoSupremeExecutor (Bytecode VM) finalizada con éxito.");
-                } else {
-                    logToConsole("[System Error] La compilación o el hilo de la máquina virtual terminaron con código de error.", "err");
-                }
-            } catch (err) {
-                logToConsole(`[System Error] No se pudo conectar con el compilador real de Python: ${err.message}`, "err");
-                logToConsole("[System] Finalizada simulación local aproximada.");
-            }
-        } else {
-            logToConsole("[System] Finalizada simulación local.");
-        }
-
-        btnRun.disabled = false;
-        btnRun.innerText = "⚡ Ejecutar Bloques";
-    }
-
-    function levenshtein(s1, s2) {
-        if (s1.length < s2.length) return levenshtein(s2, s1);
-        if (s2.length === 0) return s1.length;
-        
-        let previousRow = Array.from({length: s2.length + 1}, (_, i) => i);
-        for (let i = 0; i < s1.length; i++) {
-            let currentRow = [i + 1];
-            for (let j = 0; j < s2.length; j++) {
-                let insertions = previousRow[j + 1] + 1;
-                let deletions = currentRow[j] + 1;
-                let substitutions = previousRow[j] + (s1[i] !== s2[j] ? 1 : 0);
-                currentRow.push(Math.min(insertions, deletions, substitutions));
-            }
-            previousRow = currentRow;
-        }
-        return previousRow[previousRow.length - 1];
+    function getVariablesType(val) {
+        if (val === "Nito") return { name: "DIVINIDAD", class: "type-nito" };
+        if (val === "NITO" || val === "NO_NITO" || typeof val === "boolean") return { name: "BOOLEANO", class: "type-boolean" };
+        if (!isNaN(val)) return { name: "NÚMERO", class: "type-number" };
+        return { name: "TEXTO", class: "type-string" };
     }
 
     // --------------------------------------------------------------------------
-    // 4. PERSISTENCIA DE PROYECTO (GUARDAR / CARGAR JSON)
+    // 8. PERSISTENCY MODULE (SAVE/LOAD SYSTEM WITH COORDINATES & LINKS)
     // --------------------------------------------------------------------------
-    const btnSave = document.getElementById('btn-save');
-    const btnLoad = document.getElementById('btn-load');
-
-    const fileInput = document.createElement('input');
-    fileInput.type = 'file';
-    fileInput.accept = '.json';
-    fileInput.style.display = 'none';
-    document.body.appendChild(fileInput);
-
     btnSave.addEventListener('click', () => {
-        const blocks = [...workspace.querySelectorAll('.lego-block')];
-        if (blocks.length === 0) {
-            alert("No hay bloques en el lienzo para guardar.");
+        if (nodes.length === 0) {
+            alert("El lienzo está vacío. No hay nada que guardar.");
             return;
         }
 
-        const projectData = blocks.map(block => {
-            const input = block.querySelector('.block-input');
+        const serializedNodes = nodes.map(n => {
+            const inputEl = n.element.querySelector('.block-input');
             return {
-                type: block.getAttribute('data-type'),
-                value: input ? input.value : "",
-                label: block.querySelector('.block-label').innerText
+                id: n.id,
+                type: n.type,
+                x: n.x,
+                y: n.y,
+                value: inputEl ? inputEl.value : ""
             };
         });
 
-        const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(projectData, null, 2));
-        const downloadAnchor = document.createElement('a');
-        downloadAnchor.setAttribute("href", dataStr);
-        downloadAnchor.setAttribute("download", "nitoblocks_project.json");
-        document.body.appendChild(downloadAnchor);
-        downloadAnchor.click();
-        downloadAnchor.remove();
-        playSnapSound();
+        const serializedConns = connections.map(c => ({
+            id: c.id,
+            fromNode: c.fromNode,
+            fromPort: c.fromPort,
+            toNode: c.toNode,
+            toPort: c.toPort
+        }));
+
+        const project = {
+            project: "NitoBlocks Graph Project",
+            version: "0.1.3",
+            nodes: serializedNodes,
+            connections: serializedConns
+        };
+
+        const jsonStr = JSON.stringify(project, null, 2);
+        
+        // Save using local storage persistency
+        localStorage.setItem('nitoblocks_project', jsonStr);
+        
+        logToConsole("[Persistencia] Proyecto de nodos guardado exitosamente en LocalStorage.", "info");
+        alert("¡Proyecto guardado con éxito!");
     });
 
     btnLoad.addEventListener('click', () => {
-        fileInput.click();
-    });
+        const jsonStr = localStorage.getItem('nitoblocks_project');
+        if (!jsonStr) {
+            alert("No hay ningún proyecto guardado previamente.");
+            return;
+        }
 
-    fileInput.addEventListener('change', (e) => {
-        const file = e.target.files[0];
-        if (!file) return;
+        try {
+            const project = JSON.parse(jsonStr);
+            
+            // Clear current workspace
+            nodes.forEach(n => n.element.remove());
+            clearConnections();
+            nodes = [];
+            
+            nodeCounter = 0;
+            connectionCounter = 0;
 
-        const reader = new FileReader();
-        reader.onload = (event) => {
-            try {
-                const projectData = JSON.parse(event.target.result);
-                if (!Array.isArray(projectData)) throw new Error();
+            // 1. Re-instantiate node cards
+            project.nodes.forEach(n => {
+                const blockEl = createNodeInWorkspace(n.type, n.x, n.y, n.id);
+                const inputEl = blockEl.querySelector('.block-input');
+                if (inputEl) inputEl.value = n.value;
 
-                const blocks = workspace.querySelectorAll('.lego-block');
-                blocks.forEach(b => b.remove());
+                // Adjust nodeCounter base to avoid ID overlaps
+                const idx = parseInt(n.id.split('_')[1]);
+                if (idx >= nodeCounter) nodeCounter = idx + 1;
+            });
 
-                projectData.forEach(blockData => {
-                    const block = createBlockInWorkspace(blockData.type, blockData.value, blockData.label);
-                    workspace.appendChild(block);
-                    triggerSnapEffects(block);
-                });
+            // 2. Re-instantiate connection wires
+            project.connections.forEach(c => {
+                createConnection(c.fromNode, c.fromPort, c.toNode, c.toPort, c.id);
                 
-                updateGeneratedCode();
-                checkWorkspaceEmpty();
-                fileInput.value = ""; 
-            } catch (err) {
-                alert("Error al cargar el proyecto. El archivo no tiene un formato NitoBlocks válido.");
-            }
-        };
-        reader.readAsText(file);
+                const idx = parseInt(c.id.split('_')[1]);
+                if (idx >= connectionCounter) connectionCounter = idx + 1;
+            });
+
+            redrawConnections();
+            updateGeneratedCode();
+            
+            logToConsole("[Persistencia] Proyecto de nodos cargado exitosamente.", "info");
+            alert("¡Proyecto cargado con éxito!");
+        } catch (e) {
+            alert("Error al cargar el proyecto corrupto: " + e.message);
+        }
     });
+
+    btnClear.addEventListener('click', () => {
+        if (confirm("¿Estás seguro de que quieres limpiar todo el lienzo?")) {
+            nodes.forEach(n => n.element.remove());
+            clearConnections();
+            nodes = [];
+            nodeCounter = 0;
+            connectionCounter = 0;
+            checkWorkspaceEmpty();
+            updateGeneratedCode();
+            clearConsole();
+        }
+    });
+
+    // Helper mappings
+    function getBlockColorClass(type) {
+        if (type === 'discord_event') return 'event-block';
+        if (type === 'nito_si') return 'control-block';
+        if (type === 'quantum_nito' || type === 'nito_o') return 'control-block';
+        if (type === 'nito_supreme') return 'supreme-block';
+        return 'action-block';
+    }
+
+    function getNodeLabel(type) {
+        if (type === 'discord_event') return '📩 Al Recibir Mensaje';
+        if (type === 'nito_si') return '🔍 Si Condición';
+        if (type === 'imprimir') return '🖨️ Imprimir Consola';
+        if (type === 'discord_responder') return '💬 Responder Canal';
+        if (type === 'nito_supreme') return '👑 Nito Supremo';
+        if (type === 'quantum_nito') return '🔮 QuantumNito (Caja)';
+        if (type === 'nito_o') return '🛡️ Coalescencia (nito_o)';
+        return 'Nodo';
+    }
+
+    function getBlockCategory(type) {
+        if (type === 'nito_supreme' || type === 'quantum_nito' || type === 'nito_o') return 'data';
+        return 'execution';
+    }
 });

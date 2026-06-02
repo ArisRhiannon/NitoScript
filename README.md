@@ -177,11 +177,16 @@ nito_imprimir("El seno de " + angulo + " es: " + resultado)
 
 ---
 
-## 6. NitoBlocks v0.1.2: Entorno Visual Premium, Fluidos de Energía y Taxonomía Intuitiva
+## 6. NitoBlocks v0.1.3: Entorno Visual Premium de Grafos y Nodos Cuánticos Interactivos
 
 ![NitoBlocks Banner](assets/nitoblocks_banner.png)
 
-NitoBlocks evoluciona en la versión **v0.1.2** hacia un estándar visual de nivel AAA, ofreciendo un entorno de programación visual extremadamente inmersivo y altamente intuitivo para desarrolladores de todos los niveles:
+NitoBlocks evoluciona en la versión **v0.1.3** hacia un estándar AAA de programación visual mediante **grafos y árboles de nodos interactivos bidimensionales**. Rompe con el esquema lineal vertical para dar paso a un lienzo infinito totalmente funcional donde los bloques son nodos flotantes interconectables en 2D:
+
+*   **Lienzo de Nodos Interactivos**: Arrastra nodos libremente en el plano X/Y, con soporte de anclaje a rejilla de 10px y cables de conexión Bezier curvos basados en SVG que reaccionan luminosamente al arrastre y selección.
+*   **Alimentación Múltiple (Branching)**: Un puerto de salida de datos (como el payload de un evento de llegada, un cálculo matemático o la constante suprema `Nito`) puede alimentar a múltiples puertos de entrada y nodos aguas abajo simultáneamente de forma no-lineal.
+*   **Compilador de Grafo Topológico DFS**: Implementa un algoritmo de ordenamiento topológico inverso en Javascript que recorre el flujo lógico, resuelve recursivamente las dependencias de datos hacia atrás (generando las declaraciones de variables y expresiones de soporte) y compila un bytecode limpio y 100% ejecutable.
+*   **Persistencia Completa de Grafos**: Soporte integrado para guardar y cargar proyectos en JSON de forma local, persistiendo las coordenadas X/Y y toda la red de conexiones de puertos en el lienzo.
 
 ### 6.1. Rediseño Estético Lavender & Soft Pastel Blue Glassmorphic
 La interfaz visual de NitoBlocks ha sido completamente renovada bajo un sofisticado y limpio diseño de cristal esmerilado que se alinea fielmente con los assets y banners de la marca oficial:

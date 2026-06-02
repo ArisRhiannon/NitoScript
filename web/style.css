@@ -364,13 +364,8 @@ body {
 .workspace-dropzone {
     flex: 1;
     position: relative;
-    padding: 35px;
-    overflow-y: auto;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: flex-start;
-    gap: 14px;
+    overflow: hidden; /* Allow custom scrolling or drag container */
+    background: transparent;
     transition: background-color 0.3s ease;
 }
 
@@ -426,14 +421,131 @@ body {
     color: var(--text-secondary);
 }
 
-/* Workspace Blocks stacking */
+/* Workspace Blocks stacking (2D Nodes layout) */
 .workspace-dropzone .lego-block {
     z-index: 2;
-    width: 100%;
-    max-width: 500px;
+    width: 260px; /* Absolute fixed width for node cards */
+    position: absolute; /* ABSOLUTE X/Y POSITIONS */
     margin-bottom: 0;
     box-shadow: 0 4px 15px rgba(0, 0, 0, 0.05), inset 0 1px 0 rgba(255, 255, 255, 0.6);
 }
+
+/* ==============================================================================
+   NITOBLOCKS NODE SOCKETS & CONNECTIONS STYLING
+   ============================================================================== */
+
+.node-ports-container {
+    display: flex;
+    justify-content: space-between;
+    width: 100%;
+    padding: 4px 10px 10px 10px;
+    font-size: 11px;
+    font-weight: 700;
+    border-top: 1px solid rgba(255, 255, 255, 0.2);
+    margin-top: 8px;
+}
+
+.node-inputs, .node-outputs {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.node-inputs {
+    align-items: flex-start;
+}
+
+.node-outputs {
+    align-items: flex-end;
+    text-align: right;
+}
+
+.port {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    position: relative;
+    padding: 2px 0;
+}
+
+/* The port socket dot */
+.port-socket {
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    background: var(--text-muted);
+    border: 2.5px solid #fff;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.15);
+}
+
+.port-socket:hover {
+    transform: scale(1.35);
+    box-shadow: 0 0 10px rgba(108, 92, 231, 0.5);
+}
+
+/* Output ports place socket on the right edge */
+.port-output .port-socket {
+    margin-left: 2px;
+}
+
+/* Input ports place socket on the left edge */
+.port-input .port-socket {
+    margin-right: 2px;
+}
+
+/* Specific port colors */
+.port-flow .port-socket {
+    background: #6c5ce7;
+    border-color: #fff;
+    box-shadow: 0 0 6px rgba(108, 92, 231, 0.4);
+}
+.port-flow:hover .port-socket {
+    background: #a29bfe;
+}
+
+.port-data-string .port-socket {
+    background: #00b894;
+}
+
+.port-data-any .port-socket {
+    background: #fdcb6e;
+}
+
+/* SVG Connections Overlay styling */
+.connections-svg {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+    z-index: 1;
+}
+
+.connection-path {
+    fill: none;
+    stroke: #6c5ce7;
+    stroke-width: 3.5px;
+    stroke-linecap: round;
+    filter: drop-shadow(0 2px 4px rgba(108, 92, 231, 0.35));
+    transition: stroke 0.3s ease, filter 0.3s ease;
+    pointer-events: auto; /* Allow hovering/clicking connections to delete them */
+    cursor: pointer;
+}
+
+.connection-path:hover {
+    stroke: #d63031 !important; /* turns red on hover for deletion */
+    filter: drop-shadow(0 2px 8px rgba(214, 48, 49, 0.6)) !important;
+}
+
+.connection-path.temp-path {
+    stroke-dasharray: 6 4;
+    stroke: #a29bfe;
+    pointer-events: none;
+}
+
 
 /* Active Execution Highlight (Step by step running) */
 .lego-block.active-execution {

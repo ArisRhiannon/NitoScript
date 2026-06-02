@@ -5,23 +5,23 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     
     <!-- SEO Meta Tags -->
-    <title>NitoBlocks v0.1.1 - IDE Visual de Programación Modular para NitoScript</title>
-    <meta name="description" content="Diseña, compila y ejecuta bots de Discord y scripts con NitoBlocks, el entorno visual de bloques LEGO para NitoScript, un lenguaje esotérico tolerante a errores con máquina virtual de bytecode.">
-    <meta name="keywords" content="NitoScript, NitoBlocks, lenguaje esotérico, esolang, programación visual, lego programming, bot de discord, bytecode, virtual machine, autohealing parser, arisrhiannon">
+    <title>NitoBlocks v0.1.3 - IDE Visual de Programación por Nodos para NitoScript</title>
+    <meta name="description" content="Diseña, compila y ejecuta bots de Discord y scripts con NitoBlocks, el entorno visual de nodos interactivos para NitoScript, un lenguaje esotérico tolerante a errores con máquina virtual de bytecode.">
+    <meta name="keywords" content="NitoScript, NitoBlocks, lenguaje esotérico, esolang, programación visual, programación por nodos, node programming, bot de discord, bytecode, virtual machine, autohealing parser, arisrhiannon">
     <meta name="author" content="Arisrhiannon">
     <meta name="robots" content="index, follow">
     
     <!-- Open Graph / Facebook Meta Tags -->
     <meta property="og:type" content="website">
     <meta property="og:url" content="https://github.com/arisrhiannon/nitoscript">
-    <meta property="og:title" content="NitoBlocks v0.1.1 - Programación Visual Lego para NitoScript">
-    <meta property="og:description" content="Entorno integrado visual LEGO de alta tolerancia a fallos. Programa tu lógica en minutos y compila a bytecode nativo de NitoScript.">
+    <meta property="og:title" content="NitoBlocks v0.1.3 - Programación Visual de Nodos para NitoScript">
+    <meta property="og:description" content="Entorno integrado visual de nodos de alta tolerancia a fallos. Programa tu lógica en minutos y compila a bytecode nativo de NitoScript.">
     <meta property="og:image" content="../assets/nitoblocks_banner.png">
 
     <!-- Twitter Card Meta Tags -->
     <meta name="twitter:card" content="summary_large_image">
-    <meta name="twitter:title" content="NitoBlocks v0.1.1 - IDE Visual para NitoScript">
-    <meta name="twitter:description" content="Programa visualmente como si conectaras bloques LEGO con soporte de compilación a bytecode y auto-recuperación de errores en tiempo real.">
+    <meta name="twitter:title" content="NitoBlocks v0.1.3 - IDE de Nodos para NitoScript">
+    <meta name="twitter:description" content="Programa visualmente mediante un lienzo de nodos interconectados con soporte de compilación a bytecode y auto-recuperación de errores en tiempo real.">
     <meta name="twitter:image" content="../assets/nitoblocks_banner.png">
 
     <!-- Google Fonts -->
@@ -34,7 +34,7 @@
     <header class="app-header">
         <div class="logo-area">
             <span class="logo-icon">🟨</span>
-            <h1>NitoBlocks <span class="version-badge">v0.1.1</span></h1>
+            <h1>NitoBlocks <span class="version-badge">v0.1.3</span></h1>
             <p class="subtitle">Programación Visual Tolerante a Errores para NitoScript</p>
         </div>
         <div class="action-buttons">
@@ -111,21 +111,41 @@
                     </div>
                 </div>
             </div>
+
+            <div class="block-category">
+                <h3>Operadores Cuánticos</h3>
+                <!-- QuantumNito Block -->
+                <div class="block-template lego-block control-block" draggable="true" data-type="quantum_nito">
+                    <div class="block-studs"></div>
+                    <div class="block-content">
+                        <span class="block-label">🔮 QuantumNito(Caja)</span>
+                    </div>
+                </div>
+                <!-- Coalescence Block -->
+                <div class="block-template lego-block control-block" draggable="true" data-type="nito_o">
+                    <div class="block-studs"></div>
+                    <div class="block-content">
+                        <span class="block-label">🛡️ Coalescencia nito_o</span>
+                    </div>
+                </div>
+            </div>
         </aside>
 
         <!-- Workspace (Center Pane) -->
         <section class="workspace-panel">
             <div class="panel-header">
-                <h2>🏗️ Lienzo de Conexión (Workspace)</h2>
-                <span class="instruction-tip">Suelta los bloques aquí para apilarlos como LEGOs</span>
+                <h2>🏗️ Lienzo de Conexión de Nodos (Workspace)</h2>
+                <span class="instruction-tip">Suelta los bloques e interconecta sus puertos para programar flujos cuánticos</span>
             </div>
             <div id="workspace" class="workspace-dropzone">
                 <div class="workspace-grid-overlay"></div>
+                <!-- SVG Canvas container for visual node links -->
+                <svg id="workspace-connections" class="connections-svg"></svg>
                 <!-- Connected blocks will render here dynamically -->
                 <div class="empty-state">
                     <div class="empty-icon">🔌</div>
-                    <h3>El lienzo está vacío</h3>
-                    <p>Arrastra bloques desde la izquierda para comenzar a programar tu bot.</p>
+                    <h3>El lienzo de nodos está vacío</h3>
+                    <p>Arrastra bloques desde la izquierda e interconecta sus puertos para comenzar a programar.</p>
                 </div>
             </div>
         </section>
