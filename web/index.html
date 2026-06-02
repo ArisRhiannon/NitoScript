@@ -58,8 +58,21 @@
                 <!-- Discord Event Block -->
                 <div class="block-template lego-block event-block" draggable="true" data-type="discord_event">
                     <div class="block-studs"><span></span><span></span><span></span><span></span></div>
-                    <div class="block-content">
-                        <span class="block-label">Al recibir mensaje de Discord:</span>
+                    <div class="block-content" style="padding: 10px 14px; border-bottom: 1px solid rgba(255, 255, 255, 0.15);">
+                        <span class="block-label">📩 Al Recibir Mensaje</span>
+                    </div>
+                    <div class="node-ports-container">
+                        <div class="node-inputs"></div>
+                        <div class="node-outputs">
+                            <div class="port port-output port-flow">
+                                <span>Ejecutar</span>
+                                <span class="port-socket"></span>
+                            </div>
+                            <div class="port port-output port-data-string">
+                                <span>evento.msg</span>
+                                <span class="port-socket"></span>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -69,32 +82,123 @@
                 <!-- If Condition Block -->
                 <div class="block-template lego-block control-block" draggable="true" data-type="nito_si">
                     <div class="block-studs"><span></span><span></span><span></span><span></span></div>
-                    <div class="block-content">
-                        <span class="block-label">nito_si [mensaje] es igual a:</span>
-                        <input type="text" class="block-input" placeholder="ping" value="ping" readonly style="pointer-events: none;">
+                    <div class="block-content" style="padding: 10px 14px; border-bottom: 1px solid rgba(255, 255, 255, 0.15);">
+                        <span class="block-label">🔍 Si Condición</span>
+                    </div>
+                    <div style="padding: 10px 14px; display: flex; flex-direction: column; gap: 8px;">
+                        <div style="display: flex; align-items: center; gap: 6px; font-size: 12px;">
+                            <span>Comparar:</span>
+                            <input type="text" class="block-input" placeholder="ping" value="ping" readonly style="pointer-events: none; flex: 1; max-width: 150px;">
+                        </div>
+                    </div>
+                    <div class="node-ports-container">
+                        <div class="node-inputs">
+                            <div class="port port-input port-flow">
+                                <span class="port-socket"></span>
+                                <span>Flujo</span>
+                            </div>
+                            <div class="port port-input port-data-string">
+                                <span class="port-socket"></span>
+                                <span>Comparar</span>
+                            </div>
+                        </div>
+                        <div class="node-outputs">
+                            <div class="port port-output port-flow">
+                                <span>Haz</span>
+                                <span class="port-socket"></span>
+                            </div>
+                            <div class="port port-output port-data-any">
+                                <span>resultado</span>
+                                <span class="port-socket"></span>
+                            </div>
+                        </div>
                     </div>
                 </div>
                 <!-- Sino Si Condition Block -->
                 <div class="block-template lego-block control-block" draggable="true" data-type="nito_sino_si">
                     <div class="block-studs"><span></span><span></span><span></span><span></span></div>
-                    <div class="block-content">
-                        <span class="block-label">nito_sino_si [mensaje] es igual a:</span>
-                        <input type="text" class="block-input" placeholder="pong" value="pong" readonly style="pointer-events: none;">
+                    <div class="block-content" style="padding: 10px 14px; border-bottom: 1px solid rgba(255, 255, 255, 0.15);">
+                        <span class="block-label">❓ Sino Si</span>
+                    </div>
+                    <div style="padding: 10px 14px; display: flex; flex-direction: column; gap: 8px;">
+                        <div style="display: flex; align-items: center; gap: 6px; font-size: 12px;">
+                            <span>Comparar:</span>
+                            <input type="text" class="block-input" placeholder="pong" value="pong" readonly style="pointer-events: none; flex: 1; max-width: 150px;">
+                        </div>
+                    </div>
+                    <div class="node-ports-container">
+                        <div class="node-inputs">
+                            <div class="port port-input port-flow">
+                                <span class="port-socket"></span>
+                                <span>Flujo</span>
+                            </div>
+                            <div class="port port-input port-data-string">
+                                <span class="port-socket"></span>
+                                <span>Comparar</span>
+                            </div>
+                        </div>
+                        <div class="node-outputs">
+                            <div class="port port-output port-flow">
+                                <span>Haz</span>
+                                <span class="port-socket"></span>
+                            </div>
+                            <div class="port port-output port-data-any">
+                                <span>resultado</span>
+                                <span class="port-socket"></span>
+                            </div>
+                        </div>
                     </div>
                 </div>
                 <!-- Sino Block -->
                 <div class="block-template lego-block control-block" draggable="true" data-type="nito_sino">
                     <div class="block-studs"><span></span><span></span><span></span><span></span></div>
-                    <div class="block-content">
-                        <span class="block-label">nito_sino</span>
+                    <div class="block-content" style="padding: 10px 14px; border-bottom: 1px solid rgba(255, 255, 255, 0.15);">
+                        <span class="block-label">🔄 Sino</span>
+                    </div>
+                    <div class="node-ports-container">
+                        <div class="node-inputs">
+                            <div class="port port-input port-flow">
+                                <span class="port-socket"></span>
+                                <span>Flujo</span>
+                            </div>
+                        </div>
+                        <div class="node-outputs">
+                            <div class="port port-output port-flow">
+                                <span>Haz</span>
+                                <span class="port-socket"></span>
+                            </div>
+                        </div>
                     </div>
                 </div>
                 <!-- While Loop Block -->
                 <div class="block-template lego-block control-block" draggable="true" data-type="nito_mientras">
                     <div class="block-studs"><span></span><span></span><span></span><span></span></div>
-                    <div class="block-content">
-                        <span class="block-label">nito_mientras [condición] haz:</span>
-                        <input type="text" class="block-input" placeholder="NITO" value="NITO" readonly style="pointer-events: none;">
+                    <div class="block-content" style="padding: 10px 14px; border-bottom: 1px solid rgba(255, 255, 255, 0.15);">
+                        <span class="block-label">🔁 Bucle Mientras</span>
+                    </div>
+                    <div style="padding: 10px 14px; display: flex; flex-direction: column; gap: 8px;">
+                        <div style="display: flex; align-items: center; gap: 6px; font-size: 12px;">
+                            <span>Mientras:</span>
+                            <input type="text" class="block-input" placeholder="NITO" value="NITO" readonly style="pointer-events: none; flex: 1; max-width: 150px;">
+                        </div>
+                    </div>
+                    <div class="node-ports-container">
+                        <div class="node-inputs">
+                            <div class="port port-input port-flow">
+                                <span class="port-socket"></span>
+                                <span>Flujo</span>
+                            </div>
+                            <div class="port port-input port-data-any">
+                                <span class="port-socket"></span>
+                                <span>Condicion</span>
+                            </div>
+                        </div>
+                        <div class="node-outputs">
+                            <div class="port port-output port-flow">
+                                <span>Repetir</span>
+                                <span class="port-socket"></span>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -104,33 +208,121 @@
                 <!-- Print Block -->
                 <div class="block-template lego-block action-block" draggable="true" data-type="imprimir">
                     <div class="block-studs"><span></span><span></span><span></span><span></span></div>
-                    <div class="block-content">
-                        <span class="block-label">imprimir en consola:</span>
-                        <input type="text" class="block-input" placeholder="¡Pong!" value="¡Pong!" readonly style="pointer-events: none;">
+                    <div class="block-content" style="padding: 10px 14px; border-bottom: 1px solid rgba(255, 255, 255, 0.15);">
+                        <span class="block-label">🖨️ Imprimir Consola</span>
+                    </div>
+                    <div style="padding: 10px 14px; display: flex; flex-direction: column; gap: 8px;">
+                        <div style="display: flex; align-items: center; gap: 6px; font-size: 12px;">
+                            <span>Mensaje:</span>
+                            <input type="text" class="block-input" placeholder="¡Pong!" value="¡Pong!" readonly style="pointer-events: none; flex: 1; max-width: 150px;">
+                        </div>
+                    </div>
+                    <div class="node-ports-container">
+                        <div class="node-inputs">
+                            <div class="port port-input port-flow">
+                                <span class="port-socket"></span>
+                                <span>Flujo</span>
+                            </div>
+                            <div class="port port-input port-data-any">
+                                <span class="port-socket"></span>
+                                <span>Texto</span>
+                            </div>
+                        </div>
+                        <div class="node-outputs">
+                            <div class="port port-output port-flow">
+                                <span>Flujo</span>
+                                <span class="port-socket"></span>
+                            </div>
+                        </div>
                     </div>
                 </div>
                 <!-- Discord Reply Block -->
                 <div class="block-template lego-block action-block" draggable="true" data-type="discord_responder">
                     <div class="block-studs"><span></span><span></span><span></span><span></span></div>
-                    <div class="block-content">
-                        <span class="block-label">responder al canal:</span>
-                        <input type="text" class="block-input" placeholder="¡Hola Nito!" value="¡Hola Nito!" readonly style="pointer-events: none;">
+                    <div class="block-content" style="padding: 10px 14px; border-bottom: 1px solid rgba(255, 255, 255, 0.15);">
+                        <span class="block-label">💬 Responder Canal</span>
+                    </div>
+                    <div style="padding: 10px 14px; display: flex; flex-direction: column; gap: 8px;">
+                        <div style="display: flex; align-items: center; gap: 6px; font-size: 12px;">
+                            <span>Mensaje:</span>
+                            <input type="text" class="block-input" placeholder="¡Hola Nito!" value="¡Hola Nito!" readonly style="pointer-events: none; flex: 1; max-width: 150px;">
+                        </div>
+                    </div>
+                    <div class="node-ports-container">
+                        <div class="node-inputs">
+                            <div class="port port-input port-flow">
+                                <span class="port-socket"></span>
+                                <span>Flujo</span>
+                            </div>
+                            <div class="port port-input port-data-any">
+                                <span class="port-socket"></span>
+                                <span>Respuesta</span>
+                            </div>
+                        </div>
+                        <div class="node-outputs">
+                            <div class="port port-output port-flow">
+                                <span>Flujo</span>
+                                <span class="port-socket"></span>
+                            </div>
+                        </div>
                     </div>
                 </div>
                 <!-- Import FFI Block -->
                 <div class="block-template lego-block action-block" draggable="true" data-type="nito_importar">
                     <div class="block-studs"><span></span><span></span><span></span><span></span></div>
-                    <div class="block-content">
-                        <span class="block-label">importar modulo FFI:</span>
-                        <input type="text" class="block-input" placeholder="math.sin" value="math.sin" readonly style="pointer-events: none;">
+                    <div class="block-content" style="padding: 10px 14px; border-bottom: 1px solid rgba(255, 255, 255, 0.15);">
+                        <span class="block-label">🔌 Importar FFI</span>
+                    </div>
+                    <div style="padding: 10px 14px; display: flex; flex-direction: column; gap: 8px;">
+                        <div style="display: flex; align-items: center; gap: 6px; font-size: 12px;">
+                            <span>FFI Modulo:</span>
+                            <input type="text" class="block-input" placeholder="math.sin" value="math.sin" readonly style="pointer-events: none; flex: 1; max-width: 150px;">
+                        </div>
+                    </div>
+                    <div class="node-ports-container">
+                        <div class="node-inputs">
+                            <div class="port port-input port-flow">
+                                <span class="port-socket"></span>
+                                <span>Flujo</span>
+                            </div>
+                        </div>
+                        <div class="node-outputs">
+                            <div class="port port-output port-flow">
+                                <span>Flujo</span>
+                                <span class="port-socket"></span>
+                            </div>
+                        </div>
                     </div>
                 </div>
                 <!-- Return Block -->
                 <div class="block-template lego-block action-block" draggable="true" data-type="nito_retorna">
                     <div class="block-studs"><span></span><span></span><span></span><span></span></div>
-                    <div class="block-content">
-                        <span class="block-label">retornar valor:</span>
-                        <input type="text" class="block-input" placeholder="NITO" value="NITO" readonly style="pointer-events: none;">
+                    <div class="block-content" style="padding: 10px 14px; border-bottom: 1px solid rgba(255, 255, 255, 0.15);">
+                        <span class="block-label">📤 Retornar Valor</span>
+                    </div>
+                    <div style="padding: 10px 14px; display: flex; flex-direction: column; gap: 8px;">
+                        <div style="display: flex; align-items: center; gap: 6px; font-size: 12px;">
+                            <span>Retornar:</span>
+                            <input type="text" class="block-input" placeholder="NITO" value="NITO" readonly style="pointer-events: none; flex: 1; max-width: 150px;">
+                        </div>
+                    </div>
+                    <div class="node-ports-container">
+                        <div class="node-inputs">
+                            <div class="port port-input port-flow">
+                                <span class="port-socket"></span>
+                                <span>Flujo</span>
+                            </div>
+                            <div class="port port-input port-data-any">
+                                <span class="port-socket"></span>
+                                <span>Valor</span>
+                            </div>
+                        </div>
+                        <div class="node-outputs">
+                            <div class="port port-output port-flow">
+                                <span>Flujo</span>
+                                <span class="port-socket"></span>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -140,8 +332,17 @@
                 <!-- Nito Supreme Block -->
                 <div class="block-template lego-block supreme-block" draggable="true" data-type="nito_supreme">
                     <div class="block-studs"><span></span><span></span><span></span><span></span></div>
-                    <div class="block-content">
-                        <span class="block-label">Nito (Elemento Supremo)</span>
+                    <div class="block-content" style="padding: 10px 14px; border-bottom: 1px solid rgba(255, 255, 255, 0.15);">
+                        <span class="block-label">👑 Nito Supremo</span>
+                    </div>
+                    <div class="node-ports-container">
+                        <div class="node-inputs"></div>
+                        <div class="node-outputs">
+                            <div class="port port-output port-data-any">
+                                <span>Nito</span>
+                                <span class="port-socket"></span>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -151,15 +352,47 @@
                 <!-- QuantumNito Block -->
                 <div class="block-template lego-block control-block" draggable="true" data-type="quantum_nito">
                     <div class="block-studs"><span></span><span></span><span></span><span></span></div>
-                    <div class="block-content">
-                        <span class="block-label">QuantumNito (Caja)</span>
+                    <div class="block-content" style="padding: 10px 14px; border-bottom: 1px solid rgba(255, 255, 255, 0.15);">
+                        <span class="block-label">🔮 QuantumNito</span>
+                    </div>
+                    <div class="node-ports-container">
+                        <div class="node-inputs">
+                            <div class="port port-input port-data-any">
+                                <span class="port-socket"></span>
+                                <span>Objeto</span>
+                            </div>
+                        </div>
+                        <div class="node-outputs">
+                            <div class="port port-output port-data-any">
+                                <span>Caja(Null-Safe)</span>
+                                <span class="port-socket"></span>
+                            </div>
+                        </div>
                     </div>
                 </div>
                 <!-- Coalescence Block -->
                 <div class="block-template lego-block control-block" draggable="true" data-type="nito_o">
                     <div class="block-studs"><span></span><span></span><span></span><span></span></div>
-                    <div class="block-content">
-                        <span class="block-label">Coalescencia nito_o</span>
+                    <div class="block-content" style="padding: 10px 14px; border-bottom: 1px solid rgba(255, 255, 255, 0.15);">
+                        <span class="block-label">🛡️ Coalescencia</span>
+                    </div>
+                    <div class="node-ports-container">
+                        <div class="node-inputs">
+                            <div class="port port-input port-data-any">
+                                <span class="port-socket"></span>
+                                <span>Caja</span>
+                            </div>
+                            <div class="port port-input port-data-any">
+                                <span class="port-socket"></span>
+                                <span>Respaldo</span>
+                            </div>
+                        </div>
+                        <div class="node-outputs">
+                            <div class="port port-output port-data-any">
+                                <span>Fusion</span>
+                                <span class="port-socket"></span>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>
