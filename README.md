@@ -2,6 +2,13 @@
 
 ![NitoScript Banner](assets/nitoscript_banner.png)
 
+<p align="left">
+  <a href="https://github.com/ArisRhiannon/NitoScript"><img src="https://img.shields.io/badge/Version-0.1.0-blueviolet?style=flat-square" alt="Version"></a>
+  <a href="LICENSE"><img src="https://img.shields.io/badge/License-MIT-blue?style=flat-square" alt="License"></a>
+  <a href="https://www.python.org/"><img src="https://img.shields.io/badge/Python-3.8%2B-brightgreen?style=flat-square" alt="Python"></a>
+  <a href="https://github.com/ArisRhiannon/NitoScript"><img src="https://img.shields.io/badge/Tests-Passing-success?style=flat-square" alt="Tests"></a>
+</p>
+
 **Un lenguaje esotérico, tolerante a fallos y de alto nivel estructurado sobre un entorno de ejecución persistente de bytecode.**
 
 ---
@@ -203,3 +210,11 @@ NitoScript cuenta con una suite completa de pruebas unitarias que validan la Má
 ```bash
 python3 run_tests.py
 ```
+
+---
+
+## Licencia
+
+Este proyecto está bajo la Licencia MIT. Para obtener más detalles, consulte el archivo [LICENSE](file:///home/ubuntu/nitoscript/LICENSE).
+
+Copyright &copy; 2026 ArisRhiannon
