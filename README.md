@@ -3,7 +3,7 @@
 ![NitoScript Banner](assets/nitoscript_banner.png)
 
 <p align="left">
-  <a href="https://github.com/ArisRhiannon/NitoScript"><img src="https://img.shields.io/badge/Version-0.1.2-blueviolet?style=flat-square" alt="Version"></a>
+  <a href="https://github.com/ArisRhiannon/NitoScript"><img src="https://img.shields.io/badge/Version-0.1.3-blueviolet?style=flat-square" alt="Version"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/License-MIT-blue?style=flat-square" alt="License"></a>
   <a href="https://www.python.org/"><img src="https://img.shields.io/badge/Python-3.8%2B-brightgreen?style=flat-square" alt="Python"></a>
   <a href="https://github.com/ArisRhiannon/NitoScript"><img src="https://img.shields.io/badge/Tests-Passing-success?style=flat-square" alt="Tests"></a>
@@ -15,7 +15,7 @@
 
 ## Introducción
 
-NitoScript v0.1.2 evoluciona la propuesta original de tolerancia a fallos extrema y preeminencia semántica absoluta hacia un entorno apto para estructuras jerárquicas dinámicas complejas. Introduce el paradigma **QuantumNito (Schrödinger's Schema)** para accesos de propiedades seguros e inmunes a errores nulos, consolida un compilador formal robusto con soporte nativo de clausuras léxicas y control estricto de pila, e integra el entorno visual **NitoBlocks v0.1.1** con un servidor backend real en Python.
+NitoScript v0.1.3 evoluciona la propuesta original de tolerancia a fallos extrema y preeminencia semántica absoluta hacia un entorno apto para estructuras jerárquicas dinámicas complejas. Introduce el paradigma **QuantumNito (Schrödinger's Schema)** para accesos de propiedades seguros e inmunes a errores nulos, consolida un compilador formal robusto con soporte nativo de clausuras léxicas y control estricto de pila, e integra el entorno visual **NitoBlocks v0.1.3** con un servidor backend real en Python.
 
 ---
 
@@ -46,7 +46,7 @@ En comparaciones relacionales simples:
 
 ---
 
-## 2. Arquitectura de Ejecución: NitoSupremeExecutor (v0.1.2)
+## 2. Arquitectura de Ejecución: NitoSupremeExecutor (v0.1.3)
 
 ![NitoSupremeExecutor Banner](assets/nitosupremeexecuter_banner.png)
 
@@ -111,14 +111,14 @@ El analizador sintáctico realiza correcciones estructurales al construir el AST
 ### 3.3. Nivel de Ejecución: Fallback Heurístico (Inteligencia Propia)
 Si la sintaxis está severamente dañada y el parser formal no logra generar un AST válido, entra en acción un motor de análisis alternativo basado en reconocimiento de patrones e inferencia de intenciones lógicas:
 *   **Resolución de Asignaciones Invertidas:** Estructuras no tradicionales como `"100 es nito miVariable"` se parsean mediante reestructuración dinámica.
-*   **Límites de Seguridad (v0.1.1):** Se implementó un control estricto de recursividad máxima en el analizador de fallback para evitar el desbordamiento físico del hilo ante entradas masivas de sintaxis destructiva.
+*   **Límites de Seguridad (v0.1.3):** Se implementó un control estricto de recursividad máxima en el analizador de fallback para evitar el desbordamiento físico del hilo ante entradas masivas de sintaxis destructiva.
 
 ---
 
-## 4. QuantumNito (v0.1.2): Schrödinger's Schema & Dot-Navigation
+## 4. QuantumNito (v0.1.3): Schrödinger's Schema & Dot-Navigation
 
 > [!IMPORTANT]
-> **QuantumNito** es el mayor diferencial (selling point) de NitoScript v0.1.2. Se trata de un mecanismo nativo de programación cuántica adaptado para la mitigación del problema clásico de excepciones de puntero nulo (`NullPointerException`, `AttributeError`) al navegar por estructuras jerárquicas dinámicas complejas.
+> **QuantumNito** es el mayor diferencial (selling point) de NitoScript v0.1.3. Se trata de un mecanismo nativo de programación cuántica adaptado para la mitigación del problema clásico de excepciones de puntero nulo (`NullPointerException`, `AttributeError`) al navegar por estructuras jerárquicas dinámicas complejas.
 
 ### 4.1. El Concepto Filosófico y Técnico
 En entornos de ejecución dinámicos tradicionales (como JavaScript o Python), navegar por un árbol de datos anidado con sintaxis de punto como `payload.user.profile.avatar` resulta en un colapso del hilo (`TypeError` o `AttributeError`) si alguna de las propiedades intermedias es nula o indefinida.
@@ -191,7 +191,9 @@ NitoBlocks evoluciona en la versión **v0.1.3** hacia un estándar AAA de progra
 ### 6.1. Rediseño Estético Lavender & Soft Pastel Blue Glassmorphic
 La interfaz visual de NitoBlocks ha sido completamente renovada bajo un sofisticado y limpio diseño de cristal esmerilado que se alinea fielmente con los assets y banners de la marca oficial:
 *   **Cristal Esmerilado (Light/Frosted Glass)**: Paneles y tarjetas translúcidas de cristal claro con un desenfoque de fondo premium (`backdrop-filter: blur(25px)`) y bordes estilizados en tonalidades lavanda.
-*   **Relieves y Brillos Fieles**: Los NitoBlocks visuales respetan las proporciones tridimensionales y studs circulares de los banners oficiales, simulando la refracción física de la luz sobre plástico translúcido.
+*   **Paleta con Alta Fidelidad Física**: Los bloques de la "Paleta de Bloques" (menú lateral izquierdo) ya no son tarjetas rectangulares planas. Ahora replican con total precisión física las proporciones, los bordes curvos y los **studs circulares 3D superiores** que sobresalen del borde de los bloques del lienzo, logrando una cohesión visual perfecta.
+*   **Erradicación de Emojis (Slop Purge)**: El entorno visual ha sido purgado de emojis coloridos en los encabezados y etiquetas de los NitoBlocks para asegurar una tipografía pura, limpia y altamente profesional. El botón de duplicación ha sido reemplazado por un **ícono vectorial SVG ultrafino** con transiciones de opacidad y micro-animaciones interactivas de escala en hover.
+*   **Óvalos de Contraste para Lectura Cómoda**: Para garantizar una lectura sumamente cómoda del texto blanco sobre los fondos esmerilados coloreados por categoría, los encabezados y las etiquetas de parámetros en el cuerpo del bloque están respaldados por **cajas ovaladas negras ultra-sutiles de 15% de opacidad** (`rgba(0, 0, 0, 0.15)`) con bordes redondeados tipo píldora (`border-radius: 20px`). Los conectores y puertos mantienen su fondo estándar limpio para conservar intacto su código de colores de flujo y tipos de datos.
 *   **Consola y Scope Explorer Integrados**: Editores de código que contrastan de forma elegante en un fondo azul índigo de medianoche, acompañados de una consola en color cian fósforo reactivo (`#81ecec`) y un explorador que ilumina los tipos de datos del scope léxico.
 
 ### 6.2. Analizador Estático de Flujo Visual (Luminescent Energy Wires)
