@@ -875,5 +875,249 @@ body {
     }
 }
 
+/* ==============================================================================
+   NITOBLOCKS IDE PREMIUM STYLING & INTERACTIVE UX REWORK
+   ============================================================================== */
+
+/* Rework of NitoBlocks Paleta de Bloques - Modern Preview Cards */
+.node-preview-card {
+    background: var(--bg-glass-light);
+    border: 1.5px solid var(--border-color);
+    border-radius: 14px;
+    padding: 14px 16px;
+    margin-bottom: 16px;
+    cursor: grab;
+    user-select: none;
+    transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+    box-shadow: 0 4px 15px rgba(31, 38, 135, 0.03);
+    backdrop-filter: blur(8px);
+    position: relative;
+    overflow: hidden;
+}
+
+.node-preview-card:hover {
+    background: var(--bg-glass-hover);
+    transform: translateY(-3px) scale(1.025);
+    box-shadow: 0 8px 24px rgba(108, 92, 231, 0.12);
+    border-color: rgba(108, 92, 231, 0.4);
+}
+
+.node-preview-card:active {
+    cursor: grabbing;
+    transform: translateY(0) scale(0.97);
+}
+
+.mini-node-header {
+    font-size: 13.5px;
+    font-weight: 700;
+    color: var(--text-primary);
+    margin-bottom: 8px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.mini-node-ports {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    min-height: 10px;
+    padding-top: 8px;
+    border-top: 1px dashed rgba(140, 149, 191, 0.2);
+}
+
+.mini-ports-left, .mini-ports-right {
+    display: flex;
+    gap: 5px;
+    align-items: center;
+}
+
+.mini-port-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    display: inline-block;
+    box-shadow: inset 0 1px 2px rgba(255,255,255,0.4), 0 1px 3px rgba(0,0,0,0.12);
+}
+
+.mini-port-dot.flow-dot {
+    background: #6c5ce7;
+    box-shadow: 0 0 5px rgba(108, 92, 231, 0.4);
+}
+
+.mini-port-dot.string-dot {
+    background: #00b894;
+    box-shadow: 0 0 5px rgba(0, 184, 148, 0.4);
+}
+
+.mini-port-dot.any-dot {
+    background: #fdcb6e;
+    box-shadow: 0 0 5px rgba(253, 203, 110, 0.4);
+}
+
+/* Floating Canvas Zoom & Pan Controls */
+.canvas-controls {
+    position: absolute;
+    bottom: 24px;
+    right: 24px;
+    display: flex;
+    gap: 8px;
+    z-index: 100;
+    background: rgba(255, 255, 255, 0.65);
+    backdrop-filter: blur(15px);
+    border: 1px solid rgba(255, 255, 255, 0.5);
+    padding: 6px;
+    border-radius: 14px;
+    box-shadow: 0 10px 30px rgba(31, 38, 135, 0.06), inset 0 1px 0 rgba(255,255,255,0.8);
+}
+
+.canvas-controls button {
+    width: 38px;
+    height: 38px;
+    border-radius: 10px;
+    border: 1px solid rgba(255, 255, 255, 0.4);
+    background: rgba(255, 255, 255, 0.7);
+    font-size: 15px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+    outline: none;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.02);
+}
+
+.canvas-controls button:hover {
+    background: #fff;
+    transform: translateY(-2px);
+    box-shadow: 0 6px 15px rgba(108, 92, 231, 0.15);
+    border-color: rgba(108, 92, 231, 0.35);
+}
+
+.canvas-controls button:active {
+    transform: translateY(0) scale(0.95);
+}
+
+/* ==============================================================================
+   INTERACTIVE WIRE DRAGGING & SOCKET HIGHLIGHTS
+   ============================================================================== */
+
+/* When dragging a wire, dim out non-compatible elements to reduce visual cognitive load */
+.dragging-wire-active .port {
+    opacity: 0.3;
+    filter: grayscale(0.5);
+    transition: opacity 0.25s ease, filter 0.25s ease;
+}
+
+.dragging-wire-active .port.compatible {
+    opacity: 1;
+    filter: none;
+}
+
+/* Pulse compatible target sockets in brilliant neon-green/emerald */
+.dragging-wire-active .port.compatible .port-socket {
+    box-shadow: 0 0 0 4px rgba(85, 239, 196, 0.35), 0 0 18px rgba(85, 239, 196, 0.85);
+    animation: compatibleSocketPulse 1s infinite alternate cubic-bezier(0.4, 0, 0.2, 1);
+    border-color: #ffffff;
+    background: #55efc4 !important;
+    transform: scale(1.3);
+}
+
+@keyframes compatibleSocketPulse {
+    0% {
+        box-shadow: 0 0 0 2px rgba(85, 239, 196, 0.35), 0 0 10px rgba(85, 239, 196, 0.5);
+    }
+    100% {
+        box-shadow: 0 0 0 6px rgba(85, 239, 196, 0.55), 0 0 24px rgba(85, 239, 196, 1);
+    }
+}
+
+/* ==============================================================================
+   DYNAMIC LUMINESCENT SVG ENERGY FLUIDS FOR CONNECTIONS
+   ============================================================================== */
+
+/* Inactive / Idle wire: Soft grey, static */
+.connection-path.wire-inactive {
+    stroke: rgba(140, 149, 191, 0.4) !important;
+    stroke-width: 3px !important;
+    filter: none !important;
+    stroke-dasharray: none !important;
+    animation: none !important;
+}
+
+/* Perfect Active Wire: Gorgeous chill flowing Lavender/Cyan fluid crawling */
+.connection-path.wire-perfect {
+    stroke: #6c5ce7 !important;
+    stroke-width: 4.5px !important;
+    stroke-dasharray: 20 15 5 15 !important; /* irregular organic flowing dashes */
+    animation: fluidFlowPerfect 18s linear infinite !important;
+    filter: drop-shadow(0 2px 6px rgba(108, 92, 231, 0.3)) drop-shadow(0 0 2px #81ecec) !important;
+}
+
+/* Warning Wire: Slow crawling amber/golden fluid */
+.connection-path.wire-warning {
+    stroke: #fdcb6e !important;
+    stroke-width: 4px !important;
+    stroke-dasharray: 15 20 8 20 !important;
+    animation: fluidFlowWarning 32s linear infinite !important;
+    filter: drop-shadow(0 2px 6px rgba(253, 203, 110, 0.35)) !important;
+}
+
+/* Error Wire: High-voltage fast dripping red warning fluid */
+.connection-path.wire-error {
+    stroke: #ff7675 !important;
+    stroke-width: 5px !important;
+    stroke-dasharray: 10 8 4 8 !important;
+    animation: fluidFlowError 7s linear infinite !important;
+    filter: drop-shadow(0 0 10px rgba(255, 118, 117, 0.75)) !important;
+}
+
+/* Dynamic Keyframes for smooth crawling in correct flow direction */
+@keyframes fluidFlowPerfect {
+    from { stroke-dashoffset: 0; }
+    to { stroke-dashoffset: -1000; }
+}
+
+@keyframes fluidFlowWarning {
+    from { stroke-dashoffset: 0; }
+    to { stroke-dashoffset: -1000; }
+}
+
+@keyframes fluidFlowError {
+    from { stroke-dashoffset: 0; }
+    to { stroke-dashoffset: -1000; }
+}
+
+/* Canvas content container that handles 2D Zoom & Pan transforms */
+.workspace-content {
+    transition: transform 0.05s ease-out; /* minor damping for panning feel */
+}
+
+/* Premium Scrollbars and Layout Polish */
+::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+}
+
+::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+    background: rgba(108, 92, 231, 0.15);
+    border-radius: 10px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background: rgba(108, 92, 231, 0.35);
+}
+
+.workspace-dropzone.drag-over {
+    background-color: rgba(108, 92, 231, 0.04);
+    outline: 2px dashed rgba(108, 92, 231, 0.3);
+    outline-offset: -6px;
+}
+
+
 
 

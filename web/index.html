@@ -35,29 +35,33 @@
         <div class="logo-area">
             <span class="logo-icon">🟨</span>
             <h1>NitoBlocks <span class="version-badge">v0.1.3</span></h1>
-            <p class="subtitle">Programación Visual Tolerante a Errores para NitoScript</p>
+            <p class="subtitle">IDE Visual por Nodos para NitoScript</p>
         </div>
         <div class="action-buttons">
             <button id="btn-save" class="btn btn-secondary">💾 Guardar</button>
             <button id="btn-load" class="btn btn-secondary">📂 Cargar</button>
-            <button id="btn-run" class="btn btn-primary">⚡ Ejecutar Bloques</button>
+            <button id="btn-run" class="btn btn-primary">⚡ Ejecutar Nodos</button>
             <button id="btn-clear" class="btn btn-secondary">🗑️ Limpiar</button>
         </div>
     </header>
 
     <main class="app-container">
-        <!-- Toolbox (Left Pane) -->
+        <!-- Toolbox (Left Pane - Reworked Nodes Library) -->
         <aside class="toolbox-panel">
-            <h2>🧩 Paleta de Bloques</h2>
-            <p class="panel-desc">Arrastra o haz clic en los bloques para conectarlos en el lienzo.</p>
+            <h2>🧩 Librería de Nodos</h2>
+            <p class="panel-desc">Arrastra nodos al lienzo o haz clic en ellos para instanciarlos.</p>
             
             <div class="block-category">
                 <h3>Eventos (Discord)</h3>
                 <!-- Discord Event Block -->
-                <div class="block-template lego-block event-block" draggable="true" data-type="discord_event">
-                    <div class="block-studs"></div>
-                    <div class="block-content">
-                        <span class="block-label">Al recibir mensaje de Discord:</span>
+                <div class="block-template node-preview-card event-block" draggable="true" data-type="discord_event">
+                    <div class="mini-node-header">📩 Al Recibir Mensaje</div>
+                    <div class="mini-node-ports">
+                        <div class="mini-ports-left"></div>
+                        <div class="mini-ports-right">
+                            <span class="mini-port-dot flow-dot" title="Flujo de ejecución"></span>
+                            <span class="mini-port-dot string-dot" title="Datos del mensaje"></span>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -65,18 +69,17 @@
             <div class="block-category">
                 <h3>Lógica y Control</h3>
                 <!-- If Condition Block -->
-                <div class="block-template lego-block control-block" draggable="true" data-type="nito_si">
-                    <div class="block-studs"></div>
-                    <div class="block-content">
-                        <span class="block-label">nito_si [mensaje] es igual a</span>
-                        <input type="text" class="block-input" placeholder="ping" value="ping">
-                    </div>
-                </div>
-                <!-- End of Block Block -->
-                <div class="block-template lego-block control-block fin-block-style" draggable="true" data-type="fin_de_bloque">
-                    <div class="block-studs"></div>
-                    <div class="block-content">
-                        <span class="block-label">🛑 Fin de Bloque (Dedent)</span>
+                <div class="block-template node-preview-card control-block" draggable="true" data-type="nito_si">
+                    <div class="mini-node-header">🔍 Si Condición</div>
+                    <div class="mini-node-ports">
+                        <div class="mini-ports-left">
+                            <span class="mini-port-dot flow-dot"></span>
+                            <span class="mini-port-dot string-dot"></span>
+                        </div>
+                        <div class="mini-ports-right">
+                            <span class="mini-port-dot flow-dot"></span>
+                            <span class="mini-port-dot any-dot"></span>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -84,19 +87,29 @@
             <div class="block-category">
                 <h3>Acciones</h3>
                 <!-- Print Block -->
-                <div class="block-template lego-block action-block" draggable="true" data-type="imprimir">
-                    <div class="block-studs"></div>
-                    <div class="block-content">
-                        <span class="block-label">imprimir en consola:</span>
-                        <input type="text" class="block-input" placeholder="Mensaje..." value="¡Pong!">
+                <div class="block-template node-preview-card action-block" draggable="true" data-type="imprimir">
+                    <div class="mini-node-header">🖨️ Imprimir Consola</div>
+                    <div class="mini-node-ports">
+                        <div class="mini-ports-left">
+                            <span class="mini-port-dot flow-dot"></span>
+                            <span class="mini-port-dot any-dot"></span>
+                        </div>
+                        <div class="mini-ports-right">
+                            <span class="mini-port-dot flow-dot"></span>
+                        </div>
                     </div>
                 </div>
                 <!-- Discord Reply Block -->
-                <div class="block-template lego-block action-block" draggable="true" data-type="discord_responder">
-                    <div class="block-studs"></div>
-                    <div class="block-content">
-                        <span class="block-label">responder al canal:</span>
-                        <input type="text" class="block-input" placeholder="Respuesta..." value="Nito es mayor que tu ping">
+                <div class="block-template node-preview-card action-block" draggable="true" data-type="discord_responder">
+                    <div class="mini-node-header">💬 Responder Canal</div>
+                    <div class="mini-node-ports">
+                        <div class="mini-ports-left">
+                            <span class="mini-port-dot flow-dot"></span>
+                            <span class="mini-port-dot any-dot"></span>
+                        </div>
+                        <div class="mini-ports-right">
+                            <span class="mini-port-dot flow-dot"></span>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -104,10 +117,13 @@
             <div class="block-category">
                 <h3>Axiomas Divinos</h3>
                 <!-- Nito Supreme Block -->
-                <div class="block-template lego-block supreme-block" draggable="true" data-type="nito_supreme">
-                    <div class="block-studs"></div>
-                    <div class="block-content">
-                        <span class="block-label">👑 Nito (Elemento Supremo)</span>
+                <div class="block-template node-preview-card supreme-block" draggable="true" data-type="nito_supreme">
+                    <div class="mini-node-header">👑 Nito Supremo</div>
+                    <div class="mini-node-ports">
+                        <div class="mini-ports-left"></div>
+                        <div class="mini-ports-right">
+                            <span class="mini-port-dot any-dot"></span>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -115,17 +131,28 @@
             <div class="block-category">
                 <h3>Operadores Cuánticos</h3>
                 <!-- QuantumNito Block -->
-                <div class="block-template lego-block control-block" draggable="true" data-type="quantum_nito">
-                    <div class="block-studs"></div>
-                    <div class="block-content">
-                        <span class="block-label">🔮 QuantumNito(Caja)</span>
+                <div class="block-template node-preview-card control-block" draggable="true" data-type="quantum_nito">
+                    <div class="mini-node-header">🔮 QuantumNito(Caja)</div>
+                    <div class="mini-node-ports">
+                        <div class="mini-ports-left">
+                            <span class="mini-port-dot any-dot"></span>
+                        </div>
+                        <div class="mini-ports-right">
+                            <span class="mini-port-dot any-dot"></span>
+                        </div>
                     </div>
                 </div>
                 <!-- Coalescence Block -->
-                <div class="block-template lego-block control-block" draggable="true" data-type="nito_o">
-                    <div class="block-studs"></div>
-                    <div class="block-content">
-                        <span class="block-label">🛡️ Coalescencia nito_o</span>
+                <div class="block-template node-preview-card control-block" draggable="true" data-type="nito_o">
+                    <div class="mini-node-header">🛡️ Coalescencia nito_o</div>
+                    <div class="mini-node-ports">
+                        <div class="mini-ports-left">
+                            <span class="mini-port-dot any-dot"></span>
+                            <span class="mini-port-dot any-dot"></span>
+                        </div>
+                        <div class="mini-ports-right">
+                            <span class="mini-port-dot any-dot"></span>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -139,8 +166,20 @@
             </div>
             <div id="workspace" class="workspace-dropzone">
                 <div class="workspace-grid-overlay"></div>
-                <!-- SVG Canvas container for visual node links -->
-                <svg id="workspace-connections" class="connections-svg"></svg>
+                
+                <!-- Zoomable and Pannable Canvas Viewport Container -->
+                <div id="workspace-content" class="workspace-content" style="transform-origin: 0 0; width: 100%; height: 100%; position: absolute; top: 0; left: 0;">
+                    <!-- SVG Canvas container for visual node links -->
+                    <svg id="workspace-connections" class="connections-svg"></svg>
+                </div>
+                
+                <!-- Floating Zoom & Canvas Controls -->
+                <div class="canvas-controls">
+                    <button id="btn-zoom-in" title="Acercar">➕</button>
+                    <button id="btn-zoom-out" title="Alejar">➖</button>
+                    <button id="btn-zoom-reset" title="Restablecer vista">🔄</button>
+                </div>
+                
                 <!-- Connected blocks will render here dynamically -->
                 <div class="empty-state">
                     <div class="empty-icon">🔌</div>
@@ -181,14 +220,14 @@
             <div class="console-viewer">
                 <h3>💻 Consola de Ejecución</h3>
                 <div id="console-output" class="console-screen">
-                    <span class="console-placeholder">Haz clic en "Ejecutar Bloques" para iniciar el simulador.</span>
+                    <span class="console-placeholder">Haz clic en "Ejecutar Nodos" para iniciar el compilador.</span>
                 </div>
             </div>
         </aside>
     </main>
 
     <footer class="app-footer">
-        <p>NitoScript 0.1.1 & NitoBlocks IDE - Diseñado para una resiliencia sintáctica absoluta.</p>
+        <p>NitoScript v0.1.3 & NitoBlocks IDE - Diseñado para una resiliencia sintáctica absoluta.</p>
     </footer>
 
     <script src="app.js"></script>

@@ -43,6 +43,7 @@ function playSnapSound() {
 
 document.addEventListener('DOMContentLoaded', () => {
     const workspace = document.getElementById('workspace');
+    const workspaceContent = document.getElementById('workspace-content');
     const svgCanvas = document.getElementById('workspace-connections');
     const generatedCode = document.getElementById('generated-code');
     const consoleOutput = document.getElementById('console-output');
@@ -56,12 +57,20 @@ document.addEventListener('DOMContentLoaded', () => {
     const templates = document.querySelectorAll('.block-template');
 
     // --------------------------------------------------------------------------
-    // NODE SYSTEM STATE
+    // NODE SYSTEM STATE & 2D INFINITE CANVAS (ZOOM & PAN)
     // --------------------------------------------------------------------------
     let nodes = [];       // { id, element, type, x, y, inputs: {}, outputs: {} }
     let connections = []; // { id, fromNode, fromPort, toNode, toPort, pathElement }
     let nodeCounter = 0;
     let connectionCounter = 0;
+
+    // Viewport transforms (Figma/Blender scale and pan model)
+    let zoomScale = 1.0;
+    let panX = 0;
+    let panY = 0;
+    let isPanning = false;
+    let panStartX = 0;
+    let panStartY = 0;
 
     // Active drag variables
     let activeDragNode = null;
@@ -78,14 +87,13 @@ document.addEventListener('DOMContentLoaded', () => {
     let dragStartDirection = ""; // "input" or "output"
 
     // --------------------------------------------------------------------------
-    // 1. TOOLBOX & DRAG-AND-DROP TO WORKSPACE
+    // 1. TOOLBOX & DRAG-AND-DROP TO WORKSPACE (VIEWPORT COORDINATES CORRECTION)
     // --------------------------------------------------------------------------
     templates.forEach(template => {
-        // Double-click/Click to instantiate node in center of workspace
+        // Spawns new nodes inside current visible center of panning viewport
         template.addEventListener('click', () => {
-            const wsRect = workspace.getBoundingClientRect();
-            const posX = 150 + Math.random() * 80;
-            const posY = 100 + Math.random() * 80;
+            const posX = (workspace.clientWidth / 2 - panX) / zoomScale - 130 + (Math.random() * 60 - 30);
+            const posY = (workspace.clientHeight / 2 - panY) / zoomScale - 60 + (Math.random() * 60 - 30);
             const node = createNodeInWorkspace(template.getAttribute('data-type'), posX, posY);
             triggerSnapEffects(node);
             updateGeneratedCode();
@@ -113,8 +121,9 @@ document.addEventListener('DOMContentLoaded', () => {
         const type = e.dataTransfer.getData('text/plain');
         if (type) {
             const wsRect = workspace.getBoundingClientRect();
-            const posX = e.clientX - wsRect.left - 130; // center offset
-            const posY = e.clientY - wsRect.top - 25;
+            // Project screen drag location to scaled-and-panned local canvas space
+            const posX = (e.clientX - wsRect.left - panX) / zoomScale - 130;
+            const posY = (e.clientY - wsRect.top - panY) / zoomScale - 25;
             
             const node = createNodeInWorkspace(type, posX, posY);
             triggerSnapEffects(node);
@@ -234,14 +243,20 @@ document.addEventListener('DOMContentLoaded', () => {
         header.addEventListener('mousedown', (e) => {
             if (e.button !== 0) return; // Left click only
             activeDragNode = block;
-            const blockRect = block.getBoundingClientRect();
-            dragOffsetX = e.clientX - blockRect.left;
-            dragOffsetY = e.clientY - blockRect.top;
+            const targetNode = nodes.find(n => n.id === nodeId);
+            const wsRect = workspace.getBoundingClientRect();
+            
+            // Convert page screen coordinate to local scaled-and-panned viewport space
+            const localMouseX = (e.clientX - wsRect.left - panX) / zoomScale;
+            const localMouseY = (e.clientY - wsRect.top - panY) / zoomScale;
+            
+            dragOffsetX = localMouseX - targetNode.x;
+            dragOffsetY = localMouseY - targetNode.y;
             block.style.zIndex = "1000";
             e.preventDefault();
         });
 
-        workspace.appendChild(block);
+        workspaceContent.appendChild(block);
 
         const nodeObj = {
             id: nodeId,
@@ -369,12 +384,49 @@ document.addEventListener('DOMContentLoaded', () => {
         container.appendChild(port);
     }
 
+    function highlightCompatibleSockets(startSocket) {
+        const startNodeId = startSocket.closest('.lego-block').id;
+        const startDirection = startSocket.getAttribute('data-port-direction');
+        const startType = startSocket.getAttribute('data-port-type');
+        
+        document.querySelectorAll('.port-socket').forEach(socket => {
+            const socketPort = socket.closest('.port');
+            const socketNode = socket.closest('.lego-block');
+            
+            if (!socketNode) return;
+            
+            const socketNodeId = socketNode.id;
+            const socketDirection = socket.getAttribute('data-port-direction');
+            const socketType = socket.getAttribute('data-port-type');
+            
+            const isDifferentNode = (startNodeId !== socketNodeId);
+            const isDifferentDirection = (startDirection !== socketDirection);
+            
+            let isCompatible = false;
+            if (isDifferentNode && isDifferentDirection) {
+                if (startType === 'flow' && socketType === 'flow') {
+                    isCompatible = true;
+                } else if (startType !== 'flow' && socketType !== 'flow') {
+                    isCompatible = true;
+                }
+            }
+            
+            if (isCompatible) {
+                socketPort.classList.add('compatible');
+                socket.classList.add('compatible');
+            } else {
+                socketPort.classList.add('incompatible');
+                socket.classList.add('incompatible');
+            }
+        });
+    }
+
     function getSocketCoordinates(socketEl) {
         const sRect = socketEl.getBoundingClientRect();
         const wsRect = workspace.getBoundingClientRect();
         return {
-            x: sRect.left - wsRect.left + sRect.width / 2,
-            y: sRect.top - wsRect.top + sRect.height / 2
+            x: (sRect.left - wsRect.left - panX + sRect.width / 2) / zoomScale,
+            y: (sRect.top - wsRect.top - panY + sRect.height / 2) / zoomScale
         };
     }
 
@@ -396,6 +448,10 @@ document.addEventListener('DOMContentLoaded', () => {
             dragStartPortType = portType;
             dragStartDirection = direction;
 
+            // Highlight target compatible sockets and dim out other ports
+            workspace.classList.add('dragging-wire-active');
+            highlightCompatibleSockets(socket);
+
             // Initialize dynamic temporary Bezier line
             tempPathElement = document.createElementNS("http://www.w3.org/2000/svg", "path");
             tempPathElement.setAttribute("class", "connection-path temp-path");
@@ -408,21 +464,20 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    // Global drag behaviors
+    // Global drag and pan behaviors
     window.addEventListener('mousemove', (e) => {
         // Case A: Dragging dynamic Node cards
         if (activeDragNode) {
             const wsRect = workspace.getBoundingClientRect();
-            let newX = e.clientX - wsRect.left - dragOffsetX;
-            let newY = e.clientY - wsRect.top - dragOffsetY;
+            const localMouseX = (e.clientX - wsRect.left - panX) / zoomScale;
+            const localMouseY = (e.clientY - wsRect.top - panY) / zoomScale;
             
-            // Subtle snapping grid (10px increments)
+            let newX = localMouseX - dragOffsetX;
+            let newY = localMouseY - dragOffsetY;
+            
+            // Snapping grid (10px increments)
             newX = Math.round(newX / 10) * 10;
             newY = Math.round(newY / 10) * 10;
-
-            // Boundaries checks
-            newX = Math.max(10, Math.min(wsRect.width - 270, newX));
-            newY = Math.max(10, Math.min(wsRect.height - 120, newY));
 
             activeDragNode.style.left = `${newX}px`;
             activeDragNode.style.top = `${newY}px`;
@@ -442,9 +497,22 @@ document.addEventListener('DOMContentLoaded', () => {
         if (activeWireDragging && tempPathElement) {
             updateTempCable(e.clientX, e.clientY);
         }
+
+        // Case C: Infinite Canvas Panning
+        if (isPanning) {
+            panX = e.clientX - panStartX;
+            panY = e.clientY - panStartY;
+            updateWorkspaceTransform();
+        }
     });
 
     window.addEventListener('mouseup', (e) => {
+        // Drop panning
+        if (isPanning) {
+            isPanning = false;
+            workspace.style.cursor = 'default';
+        }
+
         // Drop dragging node
         if (activeDragNode) {
             activeDragNode.style.zIndex = "2";
@@ -456,6 +524,12 @@ document.addEventListener('DOMContentLoaded', () => {
         if (activeWireDragging) {
             activeWireDragging = false;
             
+            // Remove wire dragging layout filters
+            workspace.classList.remove('dragging-wire-active');
+            document.querySelectorAll('.port, .port-socket').forEach(el => {
+                el.classList.remove('compatible', 'incompatible');
+            });
+
             // Check if mouse is hovering a valid compatible socket
             const targetSocket = e.target.closest('.port-socket');
             if (tempPathElement) tempPathElement.remove();
@@ -505,8 +579,8 @@ document.addEventListener('DOMContentLoaded', () => {
         const wsRect = workspace.getBoundingClientRect();
         const start = getSocketCoordinates(dragStartSocket);
         const end = {
-            x: mx - wsRect.left,
-            y: my - wsRect.top
+            x: (mx - wsRect.left - panX) / zoomScale,
+            y: (my - wsRect.top - panY) / zoomScale
         };
         
         // Output -> Input or Input -> Output
@@ -776,11 +850,46 @@ document.addEventListener('DOMContentLoaded', () => {
             traceAndAnalyze(eventNode, reachedNodes, openScopesStack, heresyPatterns);
         });
 
+        // Expand reachedNodes to include all data-dependency blocks connected to active nodes
+        let queue = Array.from(reachedNodes);
+        while (queue.length > 0) {
+            const currentId = queue.shift();
+            connections.forEach(conn => {
+                if (conn.toNode === currentId && !reachedNodes.has(conn.fromNode)) {
+                    reachedNodes.add(conn.fromNode);
+                    queue.push(conn.fromNode);
+                }
+            });
+        }
+
         // Highlight orphaned nodes placed outside active execution flows as warnings
         nodes.forEach(node => {
             if (!reachedNodes.has(node.id)) {
                 node.element.classList.add('flow-warning');
                 node.element.title = "Bloque Huérfano: Este nodo no está conectado a ningún flujo lógico de ejecución.";
+            }
+        });
+
+        // Update SVG wire paths live styling based on source/target node health
+        connections.forEach(conn => {
+            const path = conn.pathElement;
+            path.classList.remove('wire-perfect', 'wire-warning', 'wire-error', 'wire-inactive');
+            
+            const fromNodeEl = document.getElementById(conn.fromNode);
+            const toNodeEl = document.getElementById(conn.toNode);
+            
+            if (!fromNodeEl || !toNodeEl) return;
+            
+            const isOrphaned = !reachedNodes.has(conn.fromNode) || !reachedNodes.has(conn.toNode);
+            
+            if (isOrphaned) {
+                path.classList.add('wire-inactive');
+            } else if (fromNodeEl.classList.contains('flow-error') || toNodeEl.classList.contains('flow-error')) {
+                path.classList.add('wire-error');
+            } else if (fromNodeEl.classList.contains('flow-warning') || toNodeEl.classList.contains('flow-warning')) {
+                path.classList.add('wire-warning');
+            } else {
+                path.classList.add('wire-perfect');
             }
         });
     }
@@ -981,6 +1090,12 @@ document.addEventListener('DOMContentLoaded', () => {
             nodeCounter = 0;
             connectionCounter = 0;
 
+            // Reset pan/zoom viewport translations on new project load
+            zoomScale = 1.0;
+            panX = 0;
+            panY = 0;
+            updateWorkspaceTransform();
+
             // 1. Re-instantiate node cards
             project.nodes.forEach(n => {
                 const blockEl = createNodeInWorkspace(n.type, n.x, n.y, n.id);
@@ -1017,6 +1132,13 @@ document.addEventListener('DOMContentLoaded', () => {
             nodes = [];
             nodeCounter = 0;
             connectionCounter = 0;
+            
+            // Reset viewport translation matrix on wipe
+            zoomScale = 1.0;
+            panX = 0;
+            panY = 0;
+            updateWorkspaceTransform();
+
             checkWorkspaceEmpty();
             updateGeneratedCode();
             clearConsole();
@@ -1046,5 +1168,94 @@ document.addEventListener('DOMContentLoaded', () => {
     function getBlockCategory(type) {
         if (type === 'nito_supreme' || type === 'quantum_nito' || type === 'nito_o') return 'data';
         return 'execution';
+    }
+
+    // ==============================================================================
+    // 2D INFINITE CANVAS VIEWPAN & ZOOM CONTROLLERS
+    // ==============================================================================
+    
+    // Middle-click or drag on workspace background grid to Pan
+    workspace.addEventListener('mousedown', (e) => {
+        const isGridBg = e.target.classList.contains('workspace-grid-overlay') || e.target === workspace;
+        // Middle click (button 1) or Left click (button 0) on the empty grid background
+        if (e.button === 1 || (e.button === 0 && isGridBg)) {
+            isPanning = true;
+            panStartX = e.clientX - panX;
+            panStartY = e.clientY - panY;
+            workspace.style.cursor = 'grabbing';
+            e.preventDefault();
+            e.stopPropagation();
+        }
+    });
+
+    // Zoom viewport with mouse wheel
+    workspace.addEventListener('wheel', (e) => {
+        e.preventDefault();
+        const zoomFactor = 0.06;
+        
+        // Calculate zoom focus point (anchor to mouse cursor)
+        const wsRect = workspace.getBoundingClientRect();
+        const mouseX = e.clientX - wsRect.left;
+        const mouseY = e.clientY - wsRect.top;
+        
+        // Project mouse location before zoom
+        const localX = (mouseX - panX) / zoomScale;
+        const localY = (mouseY - panY) / zoomScale;
+        
+        // Apply zoom change
+        if (e.deltaY < 0) {
+            zoomScale = Math.min(2.0, zoomScale + zoomFactor);
+        } else {
+            zoomScale = Math.max(0.4, zoomScale - zoomFactor);
+        }
+        
+        // Adjust pans so zoom centers around mouse cursor
+        panX = mouseX - localX * zoomScale;
+        panY = mouseY - localY * zoomScale;
+        
+        updateWorkspaceTransform();
+        redrawConnections();
+    }, { passive: false });
+
+    // Floating Zoom Controls Pane
+    const btnZoomIn = document.getElementById('btn-zoom-in');
+    const btnZoomOut = document.getElementById('btn-zoom-out');
+    const btnZoomReset = document.getElementById('btn-zoom-reset');
+
+    if (btnZoomIn) {
+        btnZoomIn.addEventListener('click', () => {
+            zoomScale = Math.min(2.0, zoomScale + 0.15);
+            updateWorkspaceTransform();
+            redrawConnections();
+        });
+    }
+
+    if (btnZoomOut) {
+        btnZoomOut.addEventListener('click', () => {
+            zoomScale = Math.max(0.4, zoomScale - 0.15);
+            updateWorkspaceTransform();
+            redrawConnections();
+        });
+    }
+
+    if (btnZoomReset) {
+        btnZoomReset.addEventListener('click', () => {
+            zoomScale = 1.0;
+            panX = 0;
+            panY = 0;
+            updateWorkspaceTransform();
+            redrawConnections();
+        });
+    }
+
+    function updateWorkspaceTransform() {
+        // Apply 2D translation and scale to viewport container
+        workspaceContent.style.transform = `translate(${panX}px, ${panY}px) scale(${zoomScale})`;
+        
+        // Shift grid overlay coordinates to achieve infinite scrolling visual feedback
+        const gridOverlay = workspace.querySelector('.workspace-grid-overlay');
+        if (gridOverlay) {
+            gridOverlay.style.backgroundPosition = `${panX}px ${panY}px`;
+        }
     }
 });
