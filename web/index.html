@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     
     <!-- SEO Meta Tags -->
-    <title>NitoBlocks v0.1.0 - IDE Visual de Programación Modular para NitoScript</title>
+    <title>NitoBlocks v0.1.1 - IDE Visual de Programación Modular para NitoScript</title>
     <meta name="description" content="Diseña, compila y ejecuta bots de Discord y scripts con NitoBlocks, el entorno visual de bloques LEGO para NitoScript, un lenguaje esotérico tolerante a errores con máquina virtual de bytecode.">
     <meta name="keywords" content="NitoScript, NitoBlocks, lenguaje esotérico, esolang, programación visual, lego programming, bot de discord, bytecode, virtual machine, autohealing parser, arisrhiannon">
     <meta name="author" content="Arisrhiannon">
@@ -14,13 +14,13 @@
     <!-- Open Graph / Facebook Meta Tags -->
     <meta property="og:type" content="website">
     <meta property="og:url" content="https://github.com/arisrhiannon/nitoscript">
-    <meta property="og:title" content="NitoBlocks v0.1.0 - Programación Visual Lego para NitoScript">
+    <meta property="og:title" content="NitoBlocks v0.1.1 - Programación Visual Lego para NitoScript">
     <meta property="og:description" content="Entorno integrado visual LEGO de alta tolerancia a fallos. Programa tu lógica en minutos y compila a bytecode nativo de NitoScript.">
     <meta property="og:image" content="../assets/nitoblocks_banner.png">
 
     <!-- Twitter Card Meta Tags -->
     <meta name="twitter:card" content="summary_large_image">
-    <meta name="twitter:title" content="NitoBlocks v0.1.0 - IDE Visual para NitoScript">
+    <meta name="twitter:title" content="NitoBlocks v0.1.1 - IDE Visual para NitoScript">
     <meta name="twitter:description" content="Programa visualmente como si conectaras bloques LEGO con soporte de compilación a bytecode y auto-recuperación de errores en tiempo real.">
     <meta name="twitter:image" content="../assets/nitoblocks_banner.png">
 
@@ -34,12 +34,14 @@
     <header class="app-header">
         <div class="logo-area">
             <span class="logo-icon">🟨</span>
-            <h1>NitoBlocks <span class="version-badge">v0.1.0</span></h1>
+            <h1>NitoBlocks <span class="version-badge">v0.1.1</span></h1>
             <p class="subtitle">Programación Visual Tolerante a Errores para NitoScript</p>
         </div>
         <div class="action-buttons">
+            <button id="btn-save" class="btn btn-secondary">💾 Guardar</button>
+            <button id="btn-load" class="btn btn-secondary">📂 Cargar</button>
             <button id="btn-run" class="btn btn-primary">⚡ Ejecutar Bloques</button>
-            <button id="btn-clear" class="btn btn-secondary">🗑️ Limpiar Lienzo</button>
+            <button id="btn-clear" class="btn btn-secondary">🗑️ Limpiar</button>
         </div>
     </header>
 
@@ -128,12 +130,32 @@
             </div>
         </section>
 
-        <!-- Code & Console (Right Pane) -->
+        <!-- Code, Scope & Console (Right Pane) -->
         <aside class="output-panel">
             <!-- NitoScript Code Generator -->
             <div class="code-viewer">
                 <h3>📄 Código NitoScript Generado</h3>
                 <pre><code id="generated-code"># El código aparecerá aquí automáticamente...</code></pre>
+            </div>
+            <!-- Runtime Variable Scope Explorer -->
+            <div class="variables-viewer">
+                <h3>🔍 Estado de Variables (Scope)</h3>
+                <div class="variables-table-wrapper">
+                    <table id="variables-table">
+                        <thead>
+                            <tr>
+                                <th>Variable</th>
+                                <th>Valor</th>
+                                <th>Tipo</th>
+                            </tr>
+                        </thead>
+                        <tbody id="variables-body">
+                            <tr>
+                                <td colspan="3" class="no-variables">No hay variables activas</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
             </div>
             <!-- Interactive Simulator Console -->
             <div class="console-viewer">
@@ -146,7 +168,7 @@
     </main>
 
     <footer class="app-footer">
-        <p>NitoScript 0.1.0 & NitoBlocks IDE - Diseñado para una resiliencia sintáctica absoluta.</p>
+        <p>NitoScript 0.1.1 & NitoBlocks IDE - Diseñado para una resiliencia sintáctica absoluta.</p>
     </footer>
 
     <script src="app.js"></script>

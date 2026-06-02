@@ -457,31 +457,31 @@ body {
 .output-panel {
     background: var(--bg-panel);
     display: grid;
-    grid-template-rows: 1.1fr 0.9fr;
+    grid-template-rows: 1.1fr 1fr 1fr;
     overflow: hidden;
     backdrop-filter: blur(20px);
     box-shadow: var(--shadow-soft);
     border-left: 1px solid var(--border-color);
 }
 
-.code-viewer, .console-viewer {
-    padding: 24px;
+.code-viewer, .variables-viewer, .console-viewer {
+    padding: 20px;
     display: flex;
     flex-direction: column;
     overflow: hidden;
 }
 
-.code-viewer {
+.code-viewer, .variables-viewer {
     border-bottom: 1px solid var(--border-color);
 }
 
-.code-viewer h3, .console-viewer h3 {
-    font-size: 11.5px;
+.code-viewer h3, .variables-viewer h3, .console-viewer h3 {
+    font-size: 11px;
     font-weight: 800;
     text-transform: uppercase;
     color: var(--text-muted);
     letter-spacing: 1.2px;
-    margin-bottom: 12px;
+    margin-bottom: 10px;
 }
 
 .code-viewer pre {
@@ -607,3 +607,55 @@ body {
 .lego-block.snap-animation {
     animation: snapBounce 0.35s cubic-bezier(0.25, 1, 0.5, 1);
 }
+
+/* Runtime Variables Explorer Table Styling */
+.variables-table-wrapper {
+    flex: 1;
+    background: #181825;
+    border: 1px solid rgba(0, 0, 0, 0.15);
+    border-radius: 14px;
+    padding: 12px;
+    overflow-y: auto;
+    box-shadow: inset 0 2px 8px rgba(0, 0, 0, 0.3), 0 8px 24px rgba(0, 0, 0, 0.1);
+}
+
+#variables-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-family: var(--font-mono);
+    font-size: 12px;
+    text-align: left;
+}
+
+#variables-table th {
+    color: var(--text-muted);
+    font-weight: 800;
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.8px;
+    padding: 6px 10px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+#variables-table td {
+    padding: 8px 10px;
+    color: #c0caf5;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+#variables-table tr:last-child td {
+    border-bottom: none;
+}
+
+.no-variables {
+    color: #6c7086 !important;
+    font-style: italic;
+    text-align: center;
+    padding: 20px !important;
+}
+
+/* Colors for data types in scope explorer */
+.type-nito { color: #fdcb6e !important; font-weight: bold; }
+.type-string { color: #a6e3a1 !important; }
+.type-number { color: #f9e2af !important; }
+.type-boolean { color: #89b4fa !important; }

@@ -346,7 +346,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     // --------------------------------------------------------------------------
-    // 3. RUNTIME SIMULATOR (BROWSER INTERPRETER)
+    // 3. RUNTIME SIMULATOR & REAL VM BACKEND (v0.1.1)
     // --------------------------------------------------------------------------
 
     btnRun.addEventListener('click', () => {
@@ -365,7 +365,37 @@ document.addEventListener('DOMContentLoaded', () => {
         consoleOutput.scrollTop = consoleOutput.scrollHeight;
     }
 
-    // A simple evaluation of the visual Lego structure (interpreted in JS)
+    const variablesBody = document.getElementById('variables-body');
+
+    function updateVariablesTable(scope) {
+        variablesBody.innerHTML = "";
+        const keys = Object.keys(scope);
+        if (keys.length === 0) {
+            variablesBody.innerHTML = `<tr><td colspan="3" class="no-variables">No hay variables activas</td></tr>`;
+            return;
+        }
+
+        keys.forEach(key => {
+            const item = scope[key];
+            const tr = document.createElement('tr');
+            
+            const tdName = document.createElement('td');
+            tdName.innerText = key;
+            tr.appendChild(tdName);
+            
+            const tdVal = document.createElement('td');
+            tdVal.innerText = item.val;
+            tr.appendChild(tdVal);
+            
+            const tdType = document.createElement('td');
+            tdType.innerText = item.type;
+            tdType.className = `type-${item.type.toLowerCase()}`;
+            tr.appendChild(tdType);
+            
+            variablesBody.appendChild(tr);
+        });
+    }
+
     const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
 
     async function runVisualProgram() {
@@ -382,28 +412,32 @@ document.addEventListener('DOMContentLoaded', () => {
             return;
         }
 
-        logToConsole("[System] Iniciando simulador de NitoBlocks v0.1.0...");
+        logToConsole("[System] Iniciando simulador de NitoBlocks v0.1.1...");
         await sleep(400);
         
         let activeConditions = []; // stack of booleans representing nested conditional scopes
         let hasEvent = false;
+        let virtualScope = {};
         
+        updateVariablesTable(virtualScope);
+
         const hasNitoSupreme = !!workspace.querySelector('[data-type="nito_supreme"]');
         if (hasNitoSupreme) {
             logToConsole("[Runtime Info] Divinidad Nito detectada en el lienzo. Operaciones lógicas reajustadas.");
+            virtualScope['Nito'] = { val: "Nito", type: "Nito" };
+            updateVariablesTable(virtualScope);
             await sleep(300);
         }
 
-        // Sequential block evaluation
+        // Sequential block evaluation (Visual "Nito walk" step-by-step)
         for (let i = 0; i < blocks.length; i++) {
             const block = blocks[i];
             const type = block.getAttribute('data-type');
             const input = block.querySelector('.block-input');
             const value = input ? input.value : "";
 
-            // Highlight active block
             block.classList.add('active-execution');
-            await sleep(550); // Pause for visual effect
+            await sleep(500); // Pause for visual effect
 
             if (type === 'fin_de_bloque') {
                 if (activeConditions.length > 0) {
@@ -414,7 +448,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 continue;
             }
 
-            // Skip block execution if any parent condition in stack evaluates to false
             const shouldSkip = activeConditions.some(c => !c);
             if (shouldSkip && type !== 'discord_event' && type !== 'nito_si') {
                 block.classList.remove('active-execution');
@@ -425,12 +458,13 @@ document.addEventListener('DOMContentLoaded', () => {
                 hasEvent = true;
                 logToConsole("[System] Evento Discord registrado. Simulando recepción de mensaje 'ping'...");
                 activeConditions.push(true);
+                virtualScope['mensaje'] = { val: "ping", type: "String" };
+                updateVariablesTable(virtualScope);
                 block.classList.remove('active-execution');
                 continue;
             }
 
             if (type === 'nito_si') {
-                // Autohealing simulation
                 const target = "ping";
                 let isMet = false;
                 if (value.trim() === target) {
@@ -442,6 +476,8 @@ document.addEventListener('DOMContentLoaded', () => {
                     logToConsole(`[System Info] Condición de filtro '${value}' no coincide con mensaje de Discord 'ping'.`);
                 }
                 activeConditions.push(isMet);
+                virtualScope['cumple_condicion'] = { val: isMet ? "NITO" : "NO_NITO", type: "Boolean" };
+                updateVariablesTable(virtualScope);
                 block.classList.remove('active-execution');
                 continue;
             }
@@ -470,17 +506,63 @@ document.addEventListener('DOMContentLoaded', () => {
             block.classList.remove('active-execution');
         }
 
-        // Structural Auto-insertion warnings for unclosed blocks
         if (activeConditions.length > 0) {
             logToConsole("[Parser Warning] Auto-inserted missing '}' block closures for unclosed conditionals at EOF.", "warn");
         }
 
-        logToConsole("[System] Ejecución finalizada con éxito.");
+        // Live Execution on the real Python Bytecode VM via Backend API
+        const generatedCodeText = generatedCode.innerText;
+        if (blocks.length > 0 && !generatedCodeText.startsWith("#")) {
+            try {
+                logToConsole("[System] Enviando código al compilador NitoScript real en Python...");
+                await sleep(300);
+                
+                const response = await fetch('/api/run', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ code: generatedCodeText })
+                });
+                
+                const result = await response.json();
+                
+                if (result.stdout) {
+                    const lines = result.stdout.split('\n');
+                    lines.forEach(l => {
+                        if (l.trim()) {
+                            if (l.startsWith("[FFI]") || l.startsWith("[System]")) {
+                                logToConsole(l, "info");
+                            } else if (l.startsWith("[Lexer Warning]") || l.startsWith("[Parser Warning]")) {
+                                logToConsole(l, "warn");
+                            } else if (l.startsWith("[Inteligencia Propia]")) {
+                                logToConsole(l, "info");
+                            } else {
+                                logToConsole(l, "info");
+                            }
+                        }
+                    });
+                }
+                
+                if (result.stderr) {
+                    logToConsole("[Runtime Error en la Máquina Virtual]\n" + result.stderr, "err");
+                }
+                
+                if (result.success) {
+                    logToConsole("[System] Ejecución oficial en NitoSupremeExecutor (Bytecode VM) finalizada con éxito.");
+                } else {
+                    logToConsole("[System Error] La compilación o el hilo de la máquina virtual terminaron con código de error.", "err");
+                }
+            } catch (err) {
+                logToConsole(`[System Error] No se pudo conectar con el compilador real de Python: ${err.message}`, "err");
+                logToConsole("[System] Finalizada simulación local aproximada.");
+            }
+        } else {
+            logToConsole("[System] Finalizada simulación local.");
+        }
+
         btnRun.disabled = false;
         btnRun.innerText = "⚡ Ejecutar Bloques";
     }
 
-    // Levenshtein helper
     function levenshtein(s1, s2) {
         if (s1.length < s2.length) return levenshtein(s2, s1);
         if (s2.length === 0) return s1.length;
@@ -498,4 +580,75 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         return previousRow[previousRow.length - 1];
     }
+
+    // --------------------------------------------------------------------------
+    // 4. PERSISTENCIA DE PROYECTO (GUARDAR / CARGAR JSON)
+    // --------------------------------------------------------------------------
+    const btnSave = document.getElementById('btn-save');
+    const btnLoad = document.getElementById('btn-load');
+
+    const fileInput = document.createElement('input');
+    fileInput.type = 'file';
+    fileInput.accept = '.json';
+    fileInput.style.display = 'none';
+    document.body.appendChild(fileInput);
+
+    btnSave.addEventListener('click', () => {
+        const blocks = [...workspace.querySelectorAll('.lego-block')];
+        if (blocks.length === 0) {
+            alert("No hay bloques en el lienzo para guardar.");
+            return;
+        }
+
+        const projectData = blocks.map(block => {
+            const input = block.querySelector('.block-input');
+            return {
+                type: block.getAttribute('data-type'),
+                value: input ? input.value : "",
+                label: block.querySelector('.block-label').innerText
+            };
+        });
+
+        const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(projectData, null, 2));
+        const downloadAnchor = document.createElement('a');
+        downloadAnchor.setAttribute("href", dataStr);
+        downloadAnchor.setAttribute("download", "nitoblocks_project.json");
+        document.body.appendChild(downloadAnchor);
+        downloadAnchor.click();
+        downloadAnchor.remove();
+        playSnapSound();
+    });
+
+    btnLoad.addEventListener('click', () => {
+        fileInput.click();
+    });
+
+    fileInput.addEventListener('change', (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+
+        const reader = new FileReader();
+        reader.onload = (event) => {
+            try {
+                const projectData = JSON.parse(event.target.result);
+                if (!Array.isArray(projectData)) throw new Error();
+
+                const blocks = workspace.querySelectorAll('.lego-block');
+                blocks.forEach(b => b.remove());
+
+                projectData.forEach(blockData => {
+                    const block = createBlockInWorkspace(blockData.type, blockData.value, blockData.label);
+                    workspace.appendChild(block);
+                    triggerSnapEffects(block);
+                });
+                
+                updateGeneratedCode();
+                checkWorkspaceEmpty();
+                fileInput.value = ""; 
+            } catch (err) {
+                alert("Error al cargar el proyecto. El archivo no tiene un formato NitoBlocks válido.");
+            }
+        };
+        reader.readAsText(file);
+    });
 });
