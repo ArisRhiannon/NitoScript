@@ -1,26 +1,49 @@
 /* ==============================================================================
-   NITOBLOCKS DESIGN SYSTEM - VANILLA CSS
+   NITOBLOCKS DESIGN SYSTEM - PREMIUM GLASSMORPHISM (VANILLA CSS)
    ============================================================================== */
 
 :root {
-    --bg-dark: #0a0b0d;
-    --bg-panel: rgba(18, 20, 24, 0.75);
-    --border-color: rgba(255, 255, 255, 0.08);
+    /* Palette: Lavender & Soft Pastel Blue (from official design assets) */
+    --bg-gradient: linear-gradient(135deg, #f5f7ff 0%, #eef1fc 50%, #e2e8fd 100%);
+    --bg-glass-light: rgba(255, 255, 255, 0.55);
+    --bg-glass-hover: rgba(255, 255, 255, 0.75);
+    --bg-panel: rgba(255, 255, 255, 0.45);
     
-    /* Lego Category Colors */
-    --color-event: #f1c40f;
-    --color-event-dark: #d4ac0d;
-    --color-control: #3498db;
-    --color-control-dark: #2980b9;
-    --color-action: #2ecc71;
-    --color-action-dark: #27ae60;
-    --color-supreme: #d4af37;
-    --color-supreme-dark: #aa8410;
+    --border-color: rgba(255, 255, 255, 0.5);
+    --border-light: rgba(255, 255, 255, 0.35);
     
-    /* UI Accent Colors */
-    --accent-glow: rgba(212, 175, 55, 0.15);
-    --text-primary: #f5f6f8;
-    --text-secondary: #9aa0a6;
+    /* Text Colors (Navy Blue theme for readability on light glass background) */
+    --text-primary: #1d2138;
+    --text-secondary: #5e668c;
+    --text-muted: #8c95bf;
+    
+    /* Lego Glass Category Colors */
+    --color-event: rgba(162, 155, 254, 0.35);
+    --color-event-border: #6c5ce7;
+    --color-event-text: #3c32a3;
+    
+    --color-control: rgba(116, 185, 255, 0.35);
+    --color-control-border: #0984e3;
+    --color-control-text: #054e85;
+    
+    --color-action: rgba(85, 239, 196, 0.35);
+    --color-action-border: #00b894;
+    --color-action-text: #006e57;
+    
+    --color-supreme: rgba(255, 234, 167, 0.4);
+    --color-supreme-border: #fdcb6e;
+    --color-supreme-text: #966704;
+
+    --color-fin: rgba(178, 190, 195, 0.35);
+    --color-fin-border: #636e72;
+    --color-fin-text: #2d3436;
+    
+    /* Accent & Glow Effects */
+    --accent-glow: rgba(108, 92, 231, 0.15);
+    --shadow-soft: 0 8px 32px rgba(31, 38, 135, 0.05);
+    --shadow-block: 0 4px 15px rgba(0, 0, 0, 0.05), inset 0 1px 0 rgba(255, 255, 255, 0.6);
+    --shadow-hover: 0 8px 25px rgba(108, 92, 231, 0.15);
+    
     --font-sans: 'Outfit', sans-serif;
     --font-mono: 'Source Code Pro', monospace;
 }
@@ -32,7 +55,7 @@
 }
 
 body {
-    background-color: var(--bg-dark);
+    background: var(--bg-gradient);
     color: var(--text-primary);
     font-family: var(--font-sans);
     height: 100vh;
@@ -41,15 +64,17 @@ body {
     overflow: hidden;
 }
 
-/* Header Styling */
+/* Header Styling (Glassmorphism) */
 .app-header {
-    background: rgba(13, 15, 19, 0.85);
+    background: rgba(255, 255, 255, 0.4);
     border-bottom: 1px solid var(--border-color);
-    padding: 15px 30px;
+    padding: 18px 40px;
     display: flex;
     justify-content: space-between;
     align-items: center;
-    backdrop-filter: blur(10px);
+    backdrop-filter: blur(25px);
+    box-shadow: 0 4px 30px rgba(0, 0, 0, 0.02);
+    z-index: 10;
 }
 
 .logo-area {
@@ -58,77 +83,88 @@ body {
 }
 
 .logo-area h1 {
-    font-size: 24px;
+    font-size: 26px;
     font-weight: 800;
-    letter-spacing: -0.5px;
+    letter-spacing: -0.7px;
     display: flex;
     align-items: center;
-    gap: 8px;
+    gap: 10px;
+    color: var(--text-primary);
 }
 
 .logo-icon {
-    font-size: 26px;
-    animation: pulse 2s infinite ease-in-out;
+    font-size: 28px;
+    animation: floating 4s infinite ease-in-out;
 }
 
 .version-badge {
-    background: linear-gradient(135deg, var(--color-supreme), var(--color-supreme-dark));
-    color: #000;
+    background: linear-gradient(135deg, #a29bfe, #74b9ff);
+    color: #fff;
     font-size: 11px;
     font-weight: 800;
-    padding: 2px 6px;
-    border-radius: 4px;
+    padding: 3px 8px;
+    border-radius: 6px;
     vertical-align: middle;
+    box-shadow: 0 4px 10px rgba(108, 92, 231, 0.2);
 }
 
 .subtitle {
-    font-size: 12px;
+    font-size: 12.5px;
     color: var(--text-secondary);
-    margin-top: 2px;
+    margin-top: 3px;
+    font-weight: 400;
 }
 
-/* Buttons */
+/* Buttons System */
+.action-buttons {
+    display: flex;
+    gap: 12px;
+}
+
 .btn {
     font-family: var(--font-sans);
-    font-size: 14px;
+    font-size: 13.5px;
     font-weight: 600;
-    padding: 10px 20px;
-    border: none;
-    border-radius: 8px;
+    padding: 10px 22px;
+    border: 1px solid rgba(255, 255, 255, 0.4);
+    border-radius: 12px;
     cursor: pointer;
-    transition: all 0.2s ease;
+    transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
     display: inline-flex;
     align-items: center;
     gap: 8px;
 }
 
 .btn-primary {
-    background: linear-gradient(135deg, var(--color-action), #27ae60);
+    background: linear-gradient(135deg, #6c5ce7, #81ecec);
     color: #fff;
-    box-shadow: 0 4px 15px rgba(46, 204, 113, 0.2);
+    box-shadow: 0 8px 20px rgba(108, 92, 231, 0.15);
+    border: none;
 }
 
 .btn-primary:hover {
     transform: translateY(-2px);
-    box-shadow: 0 6px 20px rgba(46, 204, 113, 0.35);
+    box-shadow: 0 12px 25px rgba(108, 92, 231, 0.3);
+    filter: brightness(1.05);
 }
 
 .btn-secondary {
-    background: rgba(255, 255, 255, 0.05);
+    background: rgba(255, 255, 255, 0.6);
     color: var(--text-primary);
-    border: 1px solid var(--border-color);
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.02);
 }
 
 .btn-secondary:hover {
-    background: rgba(255, 255, 255, 0.1);
+    background: rgba(255, 255, 255, 0.95);
     transform: translateY(-2px);
+    box-shadow: 0 6px 18px rgba(0, 0, 0, 0.05);
 }
 
-/* Container Layout */
+/* Application Layout */
 .app-container {
     flex: 1;
     display: grid;
-    grid-template-columns: 280px 1fr 380px;
+    grid-template-columns: 310px 1fr 410px;
     overflow: hidden;
 }
 
@@ -136,61 +172,70 @@ body {
 .toolbox-panel {
     background: var(--bg-panel);
     border-right: 1px solid var(--border-color);
-    padding: 20px;
+    padding: 24px;
     overflow-y: auto;
-    backdrop-filter: blur(15px);
+    backdrop-filter: blur(20px);
+    box-shadow: var(--shadow-soft);
 }
 
 .toolbox-panel h2 {
-    font-size: 18px;
-    font-weight: 600;
-    margin-bottom: 6px;
+    font-size: 19px;
+    font-weight: 700;
+    margin-bottom: 8px;
+    color: var(--text-primary);
 }
 
 .panel-desc {
-    font-size: 12px;
+    font-size: 12.5px;
     color: var(--text-secondary);
     margin-bottom: 25px;
+    line-height: 1.4;
 }
 
 .block-category {
-    margin-bottom: 25px;
+    margin-bottom: 28px;
 }
 
 .block-category h3 {
-    font-size: 12px;
+    font-size: 11px;
     font-weight: 800;
     text-transform: uppercase;
-    color: var(--text-secondary);
-    letter-spacing: 1px;
-    margin-bottom: 12px;
+    color: var(--text-muted);
+    letter-spacing: 1.2px;
+    margin-bottom: 14px;
 }
 
-/* LEGO Block Base Styling (3D Plastic Look) */
+/* Crystal LEGO Block Base Styling (3D Translucent Crystal Look) */
 .lego-block {
     position: relative;
-    border-radius: 8px;
-    margin-bottom: 15px;
+    border-radius: 12px;
+    margin-bottom: 16px;
     cursor: grab;
     user-select: none;
-    box-shadow: 0 5px 0 rgba(0, 0, 0, 0.4), 
-                inset 0 1px 0 rgba(255, 255, 255, 0.2);
-    transition: transform 0.1s ease, box-shadow 0.1s ease;
+    box-shadow: var(--shadow-block);
+    border: 1px solid var(--border-color);
+    transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+    backdrop-filter: blur(10px);
+}
+
+.lego-block:hover {
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-hover);
 }
 
 .lego-block:active {
     cursor: grabbing;
 }
 
-/* Simulated LEGO Studs on top of blocks */
+/* Glass LEGO Studs on top of blocks */
 .block-studs {
     height: 6px;
     position: absolute;
     top: -5px;
-    left: 20px;
-    right: 20px;
+    left: 24px;
+    right: 24px;
     display: flex;
-    gap: 15px;
+    gap: 18px;
 }
 
 .block-studs::before, .block-studs::after {
@@ -200,123 +245,152 @@ body {
     height: 5px;
     background: inherit;
     border-radius: 4px 4px 0 0;
-    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.3),
-                0 -1px 2px rgba(0, 0, 0, 0.2);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.4),
+                0 -1px 2px rgba(0, 0, 0, 0.05);
+    border: 1px solid var(--border-light);
+    border-bottom: none;
 }
 
 .block-content {
-    padding: 12px 16px;
+    padding: 14px 20px;
     font-weight: 600;
-    font-size: 13px;
-    color: #fff;
+    font-size: 13.5px;
     display: flex;
     flex-wrap: wrap;
     align-items: center;
-    gap: 8px;
+    gap: 10px;
     border-radius: inherit;
 }
 
-/* Block Inputs */
+/* Translucent Inputs within Blocks */
 .block-input {
-    background: rgba(0, 0, 0, 0.25);
-    border: 1px solid rgba(255, 255, 255, 0.1);
-    color: #fff;
-    border-radius: 4px;
-    padding: 4px 8px;
+    background: rgba(255, 255, 255, 0.55);
+    border: 1px solid rgba(255, 255, 255, 0.8);
+    color: var(--text-primary);
+    border-radius: 8px;
+    padding: 5px 10px;
     font-family: var(--font-sans);
     font-size: 12px;
     font-weight: 600;
     outline: none;
     max-width: 130px;
+    transition: all 0.2s ease;
+    box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.02);
 }
 
 .block-input:focus {
-    border-color: rgba(255, 255, 255, 0.4);
+    background: rgba(255, 255, 255, 0.85);
+    border-color: #6c5ce7;
+    box-shadow: 0 0 0 3px rgba(108, 92, 231, 0.1);
 }
 
-/* Lego Colors Mapping */
+/* Block Category Mappings */
 .event-block {
-    background-color: var(--color-event);
-    border-bottom: 4px solid var(--color-event-dark);
+    background: var(--color-event);
+    border-left: 5px solid var(--color-event-border);
+    color: var(--color-event-text);
 }
 .event-block .block-studs::before, .event-block .block-studs::after {
-    background-color: var(--color-event);
+    background: var(--color-event);
 }
 
 .control-block {
-    background-color: var(--color-control);
-    border-bottom: 4px solid var(--color-control-dark);
+    background: var(--color-control);
+    border-left: 5px solid var(--color-control-border);
+    color: var(--color-control-text);
 }
 .control-block .block-studs::before, .control-block .block-studs::after {
-    background-color: var(--color-control);
+    background: var(--color-control);
 }
 
 .action-block {
-    background-color: var(--color-action);
-    border-bottom: 4px solid var(--color-action-dark);
+    background: var(--color-action);
+    border-left: 5px solid var(--color-action-border);
+    color: var(--color-action-text);
 }
 .action-block .block-studs::before, .action-block .block-studs::after {
-    background-color: var(--color-action);
+    background: var(--color-action);
 }
 
 .supreme-block {
-    background-color: var(--color-supreme);
-    border-bottom: 4px solid var(--color-supreme-dark);
-    animation: goldGlow 3s infinite ease-in-out;
+    background: var(--color-supreme);
+    border-left: 5px solid var(--color-supreme-border);
+    color: var(--color-supreme-text);
+    animation: divineGlow 3s infinite ease-in-out;
 }
 .supreme-block .block-studs::before, .supreme-block .block-studs::after {
-    background-color: var(--color-supreme);
+    background: var(--color-supreme);
+}
+
+/* Special styling for Fin de Bloque */
+.fin-block-style {
+    background: var(--color-fin) !important;
+    border-left: 5px solid var(--color-fin-border) !important;
+    color: var(--color-fin-text) !important;
+}
+.fin-block-style .block-studs::before, .fin-block-style .block-studs::after {
+    background: var(--color-fin) !important;
 }
 
 /* Center Panel - Workspace */
 .workspace-panel {
-    background: #0f1013;
+    background: rgba(255, 255, 255, 0.2);
     display: flex;
     flex-direction: column;
     border-right: 1px solid var(--border-color);
+    position: relative;
 }
 
 .workspace-panel .panel-header {
-    padding: 20px 30px;
+    padding: 24px 35px;
     border-bottom: 1px solid var(--border-color);
+    background: rgba(255, 255, 255, 0.3);
+    backdrop-filter: blur(10px);
 }
 
 .workspace-panel h2 {
-    font-size: 18px;
-    font-weight: 600;
+    font-size: 19px;
+    font-weight: 700;
+    color: var(--text-primary);
 }
 
 .instruction-tip {
-    font-size: 12px;
+    font-size: 12.5px;
     color: var(--text-secondary);
+    margin-top: 2px;
 }
 
+/* LEGO Canvas workspace */
 .workspace-dropzone {
     flex: 1;
     position: relative;
-    padding: 30px;
+    padding: 35px;
     overflow-y: auto;
     display: flex;
     flex-direction: column;
     align-items: center;
     justify-content: flex-start;
-    gap: 12px;
+    gap: 14px;
+    transition: background-color 0.3s ease;
 }
 
-/* LEGO grid overlay */
+.workspace-dropzone.drag-over {
+    background-color: rgba(108, 92, 231, 0.05);
+}
+
+/* Technical blueprint grid overlay */
 .workspace-grid-overlay {
     position: absolute;
     top: 0;
     left: 0;
     right: 0;
     bottom: 0;
-    background-size: 20px 20px;
-    background-image: radial-gradient(circle, rgba(255, 255, 255, 0.02) 1px, transparent 1px);
+    background-size: 24px 24px;
+    background-image: radial-gradient(circle, rgba(108, 92, 231, 0.08) 1.2px, transparent 1.2px);
     pointer-events: none;
     z-index: 0;
 }
 
-/* Dragging placeholder or snap helper */
 .empty-state {
     position: absolute;
     top: 50%;
@@ -326,43 +400,72 @@ body {
     color: var(--text-secondary);
     z-index: 1;
     pointer-events: none;
+    background: rgba(255, 255, 255, 0.55);
+    padding: 30px;
+    border-radius: 20px;
+    border: 1px solid var(--border-color);
+    backdrop-filter: blur(10px);
+    box-shadow: var(--shadow-soft);
 }
 
 .empty-icon {
-    font-size: 48px;
-    margin-bottom: 10px;
+    font-size: 52px;
+    margin-bottom: 12px;
+    animation: floating 4s infinite ease-in-out;
 }
 
 .empty-state h3 {
-    font-size: 16px;
-    font-weight: 600;
+    font-size: 17px;
+    font-weight: 700;
     color: var(--text-primary);
 }
 
 .empty-state p {
-    font-size: 12px;
-    margin-top: 4px;
+    font-size: 12.5px;
+    margin-top: 6px;
+    color: var(--text-secondary);
 }
 
-/* Stacking connections in Workspace */
+/* Workspace Blocks stacking */
 .workspace-dropzone .lego-block {
     z-index: 2;
-    width: 90%;
-    max-width: 480px;
-    margin-bottom: 0; /* stack via flex gap instead */
+    width: 100%;
+    max-width: 500px;
+    margin-bottom: 0;
+    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.04);
+}
+
+/* Active Execution Highlight (Step by step running) */
+.lego-block.active-execution {
+    transform: scale(1.03) translateY(-2px);
+    box-shadow: 0 0 25px rgba(108, 92, 231, 0.45);
+    border-color: #6c5ce7;
+    z-index: 10 !important;
+}
+
+.lego-block.active-execution::after {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0; bottom: 0;
+    border-radius: inherit;
+    box-shadow: 0 0 0 3px #6c5ce7;
+    animation: executionFlash 0.8s infinite alternate ease-in-out;
+    pointer-events: none;
 }
 
 /* Right Panel - Output Code and Console */
 .output-panel {
     background: var(--bg-panel);
     display: grid;
-    grid-template-rows: 1fr 1fr;
+    grid-template-rows: 1.1fr 0.9fr;
     overflow: hidden;
-    backdrop-filter: blur(15px);
+    backdrop-filter: blur(20px);
+    box-shadow: var(--shadow-soft);
+    border-left: 1px solid var(--border-color);
 }
 
 .code-viewer, .console-viewer {
-    padding: 20px;
+    padding: 24px;
     display: flex;
     flex-direction: column;
     overflow: hidden;
@@ -373,86 +476,106 @@ body {
 }
 
 .code-viewer h3, .console-viewer h3 {
-    font-size: 14px;
+    font-size: 11.5px;
     font-weight: 800;
     text-transform: uppercase;
-    color: var(--text-secondary);
-    letter-spacing: 0.8px;
-    margin-bottom: 10px;
+    color: var(--text-muted);
+    letter-spacing: 1.2px;
+    margin-bottom: 12px;
 }
 
 .code-viewer pre {
     flex: 1;
-    background: rgba(0, 0, 0, 0.4);
-    border: 1px solid var(--border-color);
-    border-radius: 8px;
-    padding: 15px;
+    background: #1e1e2e; /* Tokyo Night/Catppuccin Dark Editor style */
+    border: 1px solid rgba(0, 0, 0, 0.15);
+    border-radius: 14px;
+    padding: 18px;
     overflow: auto;
     font-family: var(--font-mono);
-    font-size: 12.5px;
-    color: #a9b2c3;
-    line-height: 1.5;
+    font-size: 13px;
+    color: #c0caf5;
+    line-height: 1.6;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.1);
 }
 
-/* Console Styling */
+/* Refined Dark Console */
 .console-screen {
     flex: 1;
-    background: #050608;
-    border: 1px solid var(--border-color);
-    border-radius: 8px;
-    padding: 15px;
+    background: #181825;
+    border: 1px solid rgba(0, 0, 0, 0.15);
+    border-radius: 14px;
+    padding: 18px;
     overflow-y: auto;
     font-family: var(--font-mono);
-    font-size: 12px;
-    color: #4af626; /* neon green */
-    box-shadow: inset 0 0 10px rgba(0, 0, 0, 0.8);
+    font-size: 12.5px;
+    color: #a6e3a1; /* Catppuccin Green */
+    box-shadow: inset 0 2px 8px rgba(0, 0, 0, 0.3), 0 8px 24px rgba(0, 0, 0, 0.1);
     display: flex;
     flex-direction: column;
-    gap: 4px;
+    gap: 6px;
 }
 
 .console-placeholder {
-    color: #6a737d;
+    color: #6c7086;
+    font-style: italic;
 }
 
 .console-line {
     white-space: pre-wrap;
+    line-height: 1.4;
 }
 
 .console-warn {
-    color: #f1c40f; /* warning yellow */
+    color: #f9e2af; /* Warning Yellow */
 }
 
 .console-err {
-    color: #e74c3c; /* heresy red */
+    color: #f38ba8; /* Heresy Red */
     font-weight: 600;
 }
 
-/* Footer */
+.console-info {
+    color: #89b4fa; /* Info Blue */
+}
+
+.remove-block-btn {
+    transition: color 0.2s ease, transform 0.2s ease;
+}
+.remove-block-btn:hover {
+    color: #f38ba8 !important;
+    transform: scale(1.2);
+}
+
+/* Footer styling */
 .app-footer {
-    background: #08090a;
+    background: rgba(255, 255, 255, 0.4);
     border-top: 1px solid var(--border-color);
-    padding: 10px 30px;
+    padding: 12px 40px;
     text-align: center;
-    font-size: 11px;
+    font-size: 11.5px;
     color: var(--text-secondary);
+    backdrop-filter: blur(20px);
 }
 
 /* Animations */
-@keyframes pulse {
-    0%, 100% { transform: scale(1); }
-    50% { transform: scale(1.08); }
+@keyframes floating {
+    0%, 100% { transform: translateY(0); }
+    50% { transform: translateY(-8px); }
 }
 
-@keyframes goldGlow {
+@keyframes divineGlow {
     0%, 100% {
-        box-shadow: 0 5px 0 rgba(0,0,0,0.4), 
-                    inset 0 1px 0 rgba(255,255,255,0.3),
-                    0 0 8px rgba(212, 175, 55, 0.2);
+        box-shadow: var(--shadow-block),
+                    0 0 10px rgba(253, 203, 110, 0.2);
     }
     50% {
-        box-shadow: 0 5px 0 rgba(0,0,0,0.4), 
-                    inset 0 1px 0 rgba(255,255,255,0.4),
-                    0 0 16px rgba(212, 175, 55, 0.5);
+        box-shadow: var(--shadow-block),
+                    0 0 20px rgba(253, 203, 110, 0.5);
+        transform: translateY(-1px);
     }
+}
+
+@keyframes executionFlash {
+    0% { opacity: 0.4; }
+    100% { opacity: 0.9; }
 }

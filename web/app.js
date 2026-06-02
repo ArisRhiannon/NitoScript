@@ -135,7 +135,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function getBlockColorClass(type) {
         if (type === 'discord_event') return 'event-block';
-        if (type === 'nito_si' || type === 'fin_de_bloque') return 'control-block';
+        if (type === 'nito_si') return 'control-block';
+        if (type === 'fin_de_bloque') return 'control-block fin-block-style';
         if (type === 'nito_supreme') return 'supreme-block';
         return 'action-block';
     }
@@ -262,15 +263,24 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     // A simple evaluation of the visual Lego structure (interpreted in JS)
-    function runVisualProgram() {
+    const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
+
+    async function runVisualProgram() {
+        if (btnRun.disabled) return;
+        btnRun.disabled = true;
+        btnRun.innerText = "⏳ Ejecutando...";
+        
         clearConsole();
         const blocks = workspace.querySelectorAll('.lego-block');
         if (blocks.length === 0) {
             logToConsole("[Runtime Error] No hay bloques en el lienzo para ejecutar.", "err");
+            btnRun.disabled = false;
+            btnRun.innerText = "⚡ Ejecutar Bloques";
             return;
         }
 
         logToConsole("[System] Iniciando simulador de NitoBlocks v0.1.0...");
+        await sleep(400);
         
         let activeConditions = []; // stack of booleans representing nested conditional scopes
         let hasEvent = false;
@@ -278,6 +288,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const hasNitoSupreme = !!workspace.querySelector('[data-type="nito_supreme"]');
         if (hasNitoSupreme) {
             logToConsole("[Runtime Info] Divinidad Nito detectada en el lienzo. Operaciones lógicas reajustadas.");
+            await sleep(300);
         }
 
         // Sequential block evaluation
@@ -287,17 +298,23 @@ document.addEventListener('DOMContentLoaded', () => {
             const input = block.querySelector('.block-input');
             const value = input ? input.value : "";
 
+            // Highlight active block
+            block.classList.add('active-execution');
+            await sleep(550); // Pause for visual effect
+
             if (type === 'fin_de_bloque') {
                 if (activeConditions.length > 0) {
                     activeConditions.pop();
                     logToConsole("[System Info] Saliendo del bloque condicional.");
                 }
+                block.classList.remove('active-execution');
                 continue;
             }
 
             // Skip block execution if any parent condition in stack evaluates to false
             const shouldSkip = activeConditions.some(c => !c);
             if (shouldSkip && type !== 'discord_event' && type !== 'nito_si') {
+                block.classList.remove('active-execution');
                 continue;
             }
 
@@ -305,6 +322,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 hasEvent = true;
                 logToConsole("[System] Evento Discord registrado. Simulando recepción de mensaje 'ping'...");
                 activeConditions.push(true);
+                block.classList.remove('active-execution');
                 continue;
             }
 
@@ -321,6 +339,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     logToConsole(`[System Info] Condición de filtro '${value}' no coincide con mensaje de Discord 'ping'.`);
                 }
                 activeConditions.push(isMet);
+                block.classList.remove('active-execution');
                 continue;
             }
 
@@ -344,6 +363,8 @@ document.addEventListener('DOMContentLoaded', () => {
             if (type === 'nito_supreme') {
                 logToConsole("👑 Nito es mayor que todo. Límite lógico de red establecido.");
             }
+
+            block.classList.remove('active-execution');
         }
 
         // Structural Auto-insertion warnings for unclosed blocks
@@ -352,6 +373,8 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         logToConsole("[System] Ejecución finalizada con éxito.");
+        btnRun.disabled = false;
+        btnRun.innerText = "⚡ Ejecutar Bloques";
     }
 
     // Levenshtein helper
