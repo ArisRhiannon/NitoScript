@@ -114,10 +114,10 @@ def test_supreme_heresy_violations():
 def test_fuzzy_symbol_healing():
     print("--- Running Test 6: Fuzzy Symbol Healing (Runtime) ---")
     source = (
-        "nito variableMuyEspectacular = 100\n"
-        "nito_imprimir(varMuyEspectacular + 50)\n"
-        "varMuyEspectacular = 200\n"
-        "nito_imprimir(variableMuyEspectacular)\n"
+        "nito varEspectacular = 100\n"
+        "nito_imprimir(varEspectaculr + 50)\n"
+        "varEspectaculr = 200\n"
+        "nito_imprimir(varEspectacular)\n"
     )
     
     old_stdout = sys.stdout
@@ -131,10 +131,10 @@ def test_fuzzy_symbol_healing():
     print("Output captured:\n", output)
     
     # Assert fuzzy resolution warning was printed
-    assert "Fuzzy resolved undefined variable 'varMuyEspectacular'" in output
+    assert "Fuzzy resolved undefined variable 'varEspectaculr'" in output
     # Assert correct math output (100 + 50 = 150)
     assert "150.0" in output or "150" in output
-    # Assert constant update also healed and resolved to variableMuyEspectacular
+    # Assert constant update also healed and resolved to varEspectacular
     assert "200.0" in output or "200" in output
     print("Test 6 Passed!\n")
 
@@ -261,6 +261,32 @@ def test_if_elif_else_compilation():
     assert "rama-elif" in output
     print("Test 11 Passed!\n")
 
+def test_nested_closures():
+    print("--- Running Test 12: Lexical Closures and Nested Environments ---")
+    source = (
+        "nitosegs crearSumador(incremento) {\n"
+        "    nitosegs sumar(valor) {\n"
+        "        nito_retorna valor + incremento\n"
+        "    }\n"
+        "    nito_retorna sumar\n"
+        "}\n"
+        "nito sumar5 = crearSumador(5)\n"
+        "nito_imprimir(sumar5(10))\n"
+    )
+    old_stdout = sys.stdout
+    sys.stdout = buffer = io.StringIO()
+    
+    evaluator = Evaluator()
+    run_code(source, evaluator)
+    
+    sys.stdout = old_stdout
+    output = buffer.getvalue()
+    print("Output captured:\n", output)
+    
+    # Debe retornar 15.0 o 15
+    assert "15" in output
+    print("Test 12 Passed!\n")
+
 if __name__ == "__main__":
     test_levenshtein_healing()
     test_indentation_blocks()
@@ -279,5 +305,8 @@ if __name__ == "__main__":
     
     # NitoScript 0.1.0 Elif and Expression Statement traditional compiler tests
     test_if_elif_else_compilation()
+    
+    # NitoScript 0.1.0 Lexical Closures tests
+    test_nested_closures()
     
     print("All NitoScript 0.1.0 tests completed successfully!")

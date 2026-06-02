@@ -1076,7 +1076,7 @@ class Environment:
         
         best_match = None
         min_dist = 999
-        threshold = max(2, len(name) // 3)
+        threshold = 2
         
         for decl_name, env in symbols_map.items():
             dist = levenshtein_distance(name, decl_name)
@@ -1227,7 +1227,8 @@ class Bytecode:
 
     def add_const(self, val: Any) -> int:
         for idx, c in enumerate(self.constants):
-            if c == val: return idx
+            if c is val: return idx
+            if type(c) is type(val) and c == val: return idx
         self.constants.append(val)
         return len(self.constants) - 1
 
@@ -1398,7 +1399,11 @@ class NitoSupremeExecutor:
         arg = instr.arg
         
         if op == Opcode.LOAD_CONST:
-            self.stack.append(self.code.constants[arg])
+            val = self.code.constants[arg]
+            if isinstance(val, NitoCompiledFunction):
+                # Vincular el entorno léxico actual creando una nueva instancia de cierre inmutable
+                val = NitoCompiledFunction(val.name, val.params, val.bytecode, self.environment)
+            self.stack.append(val)
         elif op == Opcode.LOAD_NAME:
             name = self.code.names[arg]
             self.stack.append(self.environment.get(name))
@@ -1410,8 +1415,6 @@ class NitoSupremeExecutor:
             name_idx, is_const = arg
             name = self.code.names[name_idx]
             val = self.pop_stack()
-            if isinstance(val, NitoCompiledFunction):
-                val.closure = self.environment
             self.environment.define(name, val, is_const)
         elif op == Opcode.ADD:
             right = self.pop_stack()
@@ -1609,7 +1612,9 @@ def ai_fallback_interpreter(source_code: str, env: Environment) -> Any:
             
     return last_val
 
-def evaluate_ai_expression(expr: str, env: Environment) -> Any:
+def evaluate_ai_expression(expr: str, env: Environment, depth: int = 0) -> Any:
+    if depth > 10:
+        raise RuntimeError("Max recursion depth exceeded in Fallback AI.")
     expr = expr.replace(';', '').strip()
     
     if "Nito" in expr or "NITO" in expr:
@@ -1692,8 +1697,8 @@ def evaluate_ai_expression(expr: str, env: Environment) -> Any:
             except NameError:
                 pass
                 
-    # If the expression contains only numbers, math operators, and spaces, evaluate it safely
-    if re.match(r'^[0-9.+\-*/\s()]+$', resolved_expr):
+    # If the expression contains only numbers, math operators, logic comparators, and spaces, evaluate it safely
+    if re.match(r'^[0-9.+\-*/\s()<>!=|&]+$|^(True|False)$', resolved_expr):
         try:
             return eval(resolved_expr, {"__builtins__": None}, {})
         except Exception:
