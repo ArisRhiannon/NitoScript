@@ -1,0 +1,22 @@
+# 01 — Basics: values, variables, and Nito
+# Run me with:  python3 nito.py examples/01_basics.nito
+
+# 'let' makes a variable. 'show' prints a value.
+let name = "world"
+show "Hello, " + name + "!"
+
+# Numbers and arithmetic work the way you expect.
+let total = 2 + 3 * 4
+show total                      # 14
+
+# Nito is the empty value. It is the heart of NitoScript.
+# Anything missing is Nito, and Nito flows through math without crashing.
+show Nito + 100                 # Nito  (absence stays absence)
+
+# Collapse a missing value into a real one with 'or'.
+let nickname = Nito or "Guest"
+show nickname                   # Guest
+
+# Asking for data that isn't there gives Nito instead of an error.
+let city = Nito.address.city or "unknown"
+show city                       # unknown

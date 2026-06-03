@@ -1,0 +1,30 @@
+# 02 — Blocks and flow chains
+# A 'block' is a named action: it takes inputs and 'give's one output.
+
+block double(x):
+    give x * 2
+
+block addTax(price):
+    give price + price * 10 / 100   # +10%
+
+show double(21)                      # 42
+
+# Snap blocks together into a flow chain with |>.
+# Read it left to right: take 50, double it, then add tax.
+show 50 |> double |> addTax          # 110
+
+# |> passes the value as the FIRST argument, so blocks can take extras:
+block clamp(value, top):
+    if value > top:
+        give top
+    give value
+
+show 9999 |> clamp(100)              # 100
+
+# Blocks can call themselves (recursion).
+block fact(n):
+    if n <= 1:
+        give 1
+    give n * fact(n - 1)
+
+show fact(5)                         # 120
