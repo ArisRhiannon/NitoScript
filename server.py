@@ -6,6 +6,7 @@ import subprocess
 import tempfile
 
 PORT = 8085
+HOST = "127.0.0.1"  # Loopback only: the /api/run endpoint executes code, never expose it on a network.
 WEB_DIR = os.path.join(os.path.dirname(__file__), 'web')
 
 class NitoBlocksAPIHandler(http.server.SimpleHTTPRequestHandler):
@@ -21,16 +22,15 @@ class NitoBlocksAPIHandler(http.server.SimpleHTTPRequestHandler):
                 data = json.loads(post_data.decode('utf-8'))
                 code_content = data.get('code', '')
                 
-                # Ejecutar NitoScript en un subproceso usando un archivo temporal seguro en el workspace
-                temp_dir = os.path.dirname(__file__)
-                with tempfile.NamedTemporaryFile(suffix='.nito', dir=temp_dir, delete=False) as f:
+                # Ejecutar NitoScript en un subproceso usando un archivo temporal aislado
+                with tempfile.NamedTemporaryFile(suffix='.nito', delete=False) as f:
                     f.write(code_content.encode('utf-8'))
                     temp_filepath = f.name
                 
                 try:
                     # Invocar la VM de NitoScript de verdad
                     res = subprocess.run(
-                        ['python3', 'nito.py', temp_filepath],
+                        ['python3', os.path.join(os.path.dirname(__file__), 'nito.py'), temp_filepath],
                         capture_output=True,
                         text=True,
                         timeout=5.0  # Límite de ejecución de 5 segundos
@@ -74,8 +74,8 @@ class NitoBlocksAPIHandler(http.server.SimpleHTTPRequestHandler):
 # Evitar errores de 'Address already in use' al reiniciar
 socketserver.TCPServer.allow_reuse_address = True
 
-with socketserver.TCPServer(("", PORT), NitoBlocksAPIHandler) as httpd:
-    print(f"[NitoBlocks Backend] Sirviendo en puerto {PORT} e interactuando con nito.py...")
+with socketserver.TCPServer((HOST, PORT), NitoBlocksAPIHandler) as httpd:
+    print(f"[NitoBlocks Backend] Sirviendo en http://{HOST}:{PORT} e interactuando con nito.py...")
     try:
         httpd.serve_forever()
     except KeyboardInterrupt:
