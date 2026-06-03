@@ -8,6 +8,9 @@ This module is the language core: lexer -> parser -> compiler -> NitoSupremeExec
 implemented here; State Chains and verify-by-replay arrive in later 0.2.0 phases.
 """
 import sys
+import io
+import hashlib
+from contextlib import redirect_stdout
 from enum import Enum, auto
 from typing import List, Dict, Set, Optional, Any
 
@@ -78,6 +81,15 @@ class BlockDeclNode(ASTNode):
     def __init__(self, name: str, params: List[str], body: "SuiteNode"):
         self.name, self.params, self.body = name, params, body
 
+class ChainDeclNode(ASTNode):
+    def __init__(self, name: str, state_fields, transitions):
+        self.name = name
+        self.state_fields = state_fields      # List[(field_name, init_expr)]
+        self.transitions = transitions        # List[BlockDeclNode]
+
+class NewChainNode(ASTNode):
+    def __init__(self, name: str): self.name = name
+
 class SuiteNode(ASTNode):
     def __init__(self, statements: List[ASTNode]): self.statements = statements
 
@@ -129,6 +141,7 @@ class LiteralNode(ASTNode):
 class TokenType(Enum):
     LET = auto(); IF = auto(); ELIF = auto(); ELSE = auto(); WHILE = auto()
     BLOCK = auto(); GIVE = auto(); SHOW = auto(); FAIL = auto(); USE = auto()
+    CHAIN = auto(); STATE = auto(); NEW = auto()
     AND = auto(); OR = auto(); NOT = auto()
     TRUE = auto(); FALSE = auto(); NITO = auto()
     IDENTIFIER = auto(); NUMBER = auto(); STRING = auto()
@@ -143,6 +156,7 @@ KEYWORDS = {
     "else": TokenType.ELSE, "while": TokenType.WHILE, "block": TokenType.BLOCK,
     "give": TokenType.GIVE, "show": TokenType.SHOW, "fail": TokenType.FAIL,
     "use": TokenType.USE, "and": TokenType.AND, "or": TokenType.OR, "not": TokenType.NOT,
+    "chain": TokenType.CHAIN, "state": TokenType.STATE, "new": TokenType.NEW,
     "true": TokenType.TRUE, "false": TokenType.FALSE, "Nito": TokenType.NITO,
 }
 
@@ -320,6 +334,7 @@ class Parser:
     def statement(self) -> ASTNode:
         if self.match(TokenType.LET): return self.let_statement()
         if self.match(TokenType.BLOCK): return self.block_declaration()
+        if self.match(TokenType.CHAIN): return self.chain_declaration()
         if self.match(TokenType.IF): return self.if_statement()
         if self.match(TokenType.WHILE): return self.while_statement()
         if self.match(TokenType.GIVE): return self.give_statement()
@@ -348,6 +363,40 @@ class Parser:
         self.consume(TokenType.RPAREN, "expected ')' to close the parameter list")
         body = self.suite("block")
         return BlockDeclNode(name, params, body)
+
+    def chain_declaration(self) -> ASTNode:
+        name = self.consume(TokenType.IDENTIFIER, "expected a chain name after 'chain'").value
+        self.consume(TokenType.COLON, "expected ':' after the chain name")
+        self.consume(TokenType.NEWLINE, "expected a new line after 'chain ...:'")
+        self.consume(TokenType.INDENT, "expected an indented body for the chain")
+        state_fields, transitions = [], []
+        while not self.check(TokenType.DEDENT) and not self.is_at_end():
+            if self.match(TokenType.NEWLINE): continue
+            if self.match(TokenType.STATE):
+                state_fields = self.state_block()
+            elif self.match(TokenType.BLOCK):
+                transitions.append(self.block_declaration())
+            else:
+                tok = self.peek()
+                raise NitoSyntaxError(f"inside a chain, expected 'state' or 'block' (found {tok.value!r}).", tok.line, tok.column)
+        self.consume(TokenType.DEDENT, "expected the chain body to end")
+        if not state_fields:
+            raise NitoSyntaxError(f"chain '{name}' needs a 'state:' block.", self.previous().line, 1)
+        return ChainDeclNode(name, state_fields, transitions)
+
+    def state_block(self):
+        self.consume(TokenType.COLON, "expected ':' after 'state'")
+        self.consume(TokenType.NEWLINE, "expected a new line after 'state:'")
+        self.consume(TokenType.INDENT, "expected indented fields under 'state:'")
+        fields = []
+        while not self.check(TokenType.DEDENT) and not self.is_at_end():
+            if self.match(TokenType.NEWLINE): continue
+            fname = self.consume(TokenType.IDENTIFIER, "expected a state field name").value
+            self.consume(TokenType.ASSIGN, "expected '=' after the field name")
+            fields.append((fname, self.expression()))
+            self.end_statement()
+        self.consume(TokenType.DEDENT, "expected the 'state:' block to end")
+        return fields
 
     def if_statement(self) -> ASTNode:
         cond = self.expression()
@@ -479,6 +528,11 @@ class Parser:
         return expr
 
     def primary(self) -> ASTNode:
+        if self.match(TokenType.NEW):
+            name = self.consume(TokenType.IDENTIFIER, "expected a chain name after 'new'").value
+            self.consume(TokenType.LPAREN, "expected '(' after the chain name")
+            self.consume(TokenType.RPAREN, "expected ')' (chains take no constructor arguments yet)")
+            return NewChainNode(name)
         if self.match(TokenType.TRUE): return LiteralNode(True)
         if self.match(TokenType.FALSE): return LiteralNode(False)
         if self.match(TokenType.NITO): return LiteralNode(Nito)
@@ -577,6 +631,139 @@ class NitoBlock:
     def __repr__(self): return f"<block {self.name}>"
 
 # ==============================================================================
+# STATE CHAINS — deterministic, hash-linked, verifiable by replay
+# ==============================================================================
+# A chain transition must be deterministic for verify-by-replay to be sound, so
+# while one is running we forbid calling external (FFI) functions. This counter
+# tracks transition depth across nested block calls (single-threaded execution).
+_TRANSITION_DEPTH = 0
+
+def _canonical(value: Any) -> str:
+    """Unambiguous, deterministic serialization used for state roots."""
+    if is_nito(value): return "N"
+    if value is True: return "T"
+    if value is False: return "F"
+    if isinstance(value, bool): return "T" if value else "F"
+    if isinstance(value, int): return "i" + str(value)
+    if isinstance(value, float): return "f" + repr(value)
+    if isinstance(value, str): return "s" + str(len(value)) + ":" + value
+    if isinstance(value, (list, tuple)): return "[" + ",".join(_canonical(v) for v in value) + "]"
+    if isinstance(value, dict): return "{" + ",".join(k + "=" + _canonical(value[k]) for k in sorted(value)) + "}"
+    return "?" + repr(value)
+
+def _sha(text: str) -> str:
+    return hashlib.sha256(text.encode("utf-8")).hexdigest()
+
+def genesis_root(state: Dict[str, Any]) -> str:
+    return _sha("GENESIS::" + _canonical(state))
+
+def next_root(prev: str, name: str, args: list, state: Dict[str, Any]) -> str:
+    return _sha(prev + "::" + name + "::" + _canonical(args) + "::" + _canonical(state))
+
+class ChainTemplate:
+    """The declared shape of a chain: initial state + transition blocks."""
+    def __init__(self, name, state_inits, transitions, def_env):
+        self.name = name
+        self.state_inits = state_inits        # List[(field, Bytecode)]
+        self.transitions = transitions        # Dict[name -> (params, Bytecode)]
+        self.def_env = def_env
+
+    def instantiate(self) -> "ChainInstance":
+        state: Dict[str, Any] = {}
+        for field, code in self.state_inits:
+            vm = NitoSupremeExecutor(code, Environment(self.def_env))
+            while vm.step():
+                pass
+            state[field] = vm.stack[-1] if vm.stack else Nito
+        return ChainInstance(self, state)
+
+    def run_transition(self, state: Dict[str, Any], name: str, args: list) -> Dict[str, Any]:
+        """Apply a transition to a copy of `state`, returning the new state.
+        Raises NitoError on failure (caller decides whether to commit)."""
+        global _TRANSITION_DEPTH
+        if name not in self.transitions:
+            raise NitoError(f"chain '{self.name}' has no action '{name}'.")
+        params, code = self.transitions[name]
+        if len(args) != len(params):
+            raise NitoError(f"action '{name}' expects {len(params)} argument(s), got {len(args)}.")
+        env = Environment(self.def_env)
+        for k, v in state.items():
+            env.define(k, v)
+        for p, a in zip(params, args):
+            env.define(p, a)
+        vm = NitoSupremeExecutor(code, env)
+        _TRANSITION_DEPTH += 1
+        try:
+            while vm.step():
+                pass
+        finally:
+            _TRANSITION_DEPTH -= 1
+        return {k: env.get(k) for k in state}
+
+class ChainInstance:
+    """A live chain: current state plus a hash-linked, replayable history."""
+    def __init__(self, template: ChainTemplate, state: Dict[str, Any]):
+        self.template = template
+        self.genesis_state = dict(state)
+        self.state = dict(state)
+        self.history: List = []               # List[(name, args, root)]
+        self.root = genesis_root(state)
+
+    def apply_transition(self, name: str, args: list) -> Any:
+        new_state = self.template.run_transition(self.state, name, args)  # raises -> abort, state intact
+        self.state = new_state
+        self.root = next_root(self.root, name, args, new_state)
+        self.history.append((name, list(args), self.root))
+        return Nito
+
+    def _replay(self):
+        """Re-execute the whole history from genesis. Returns (final_state,
+        final_root, links_ok) where links_ok is False if any recorded root
+        doesn't match the recomputation."""
+        state = dict(self.genesis_state)
+        root = genesis_root(state)
+        links_ok = True
+        with redirect_stdout(io.StringIO()):  # transitions may `show`; stay quiet on replay
+            for name, args, recorded in self.history:
+                state = self.template.run_transition(state, name, list(args))
+                root = next_root(root, name, args, state)
+                if root != recorded:
+                    links_ok = False
+        return state, root, links_ok
+
+    def verify(self) -> bool:
+        """A single validator re-runs the chain and checks every hash-link AND
+        that the live state matches the replay. Tampering with any past
+        transition, recorded root, or the current state breaks verification."""
+        try:
+            state, root, links_ok = self._replay()
+        except NitoError:
+            return False
+        return links_ok and root == self.root and state == self.state
+
+    def replay(self) -> str:
+        """Deterministically rebuild the head root from history."""
+        _, root, _ = self._replay()
+        return root
+
+    def get_property(self, name: str) -> Any:
+        if name in self.state:
+            return self.state[name]
+        if name in self.template.transitions:
+            return NitoNativeFunction(name, lambda *a, _n=name: self.apply_transition(_n, list(a)))
+        if name == "root":
+            return self.root
+        if name == "history":
+            return [f"{n}({', '.join(nito_str(x) for x in a)})" for (n, a, _) in self.history]
+        if name == "verify":
+            return NitoNativeFunction("verify", lambda *a: self.verify())
+        if name == "replay":
+            return NitoNativeFunction("replay", lambda *a: self.replay())
+        return Nito
+
+    def __repr__(self): return f"<chain {self.template.name} root={self.root[:8]}…>"
+
+# ==============================================================================
 # BYTECODE
 # ==============================================================================
 
@@ -586,6 +773,7 @@ class Opcode(Enum):
     NEGATE = auto(); NOT = auto()
     JUMP_IF_FALSE = auto(); JUMP = auto(); CALL = auto(); RETURN_VALUE = auto()
     SHOW = auto(); FAIL = auto(); IMPORT_FFI = auto(); POP_TOP = auto(); GET_PROPERTY = auto()
+    NEW_CHAIN = auto()
 
 class Instruction:
     def __init__(self, opcode, arg=None): self.opcode, self.arg = opcode, arg
@@ -693,6 +881,21 @@ class Compiler:
         if n.value: self.compile(n.value)
         else: self.code.emit(Opcode.LOAD_CONST, self.code.add_const(Nito))
         self.code.emit(Opcode.RETURN_VALUE)
+    def _c_ChainDeclNode(self, n):
+        state_inits = []
+        for field, expr in n.state_fields:
+            c = Compiler(); c.compile(expr)
+            state_inits.append((field, c.code))
+        transitions = {}
+        for bd in n.transitions:
+            c = Compiler(); c.compile(bd.body)
+            transitions[bd.name] = (bd.params, c.code)
+        tmpl = ChainTemplate(n.name, state_inits, transitions, None)
+        self.code.emit(Opcode.LOAD_CONST, self.code.add_const(tmpl))
+        self.code.emit(Opcode.DECLARE_NAME, self.code.add_name(n.name))
+    def _c_NewChainNode(self, n):
+        self.code.emit(Opcode.LOAD_NAME, self.code.add_name(n.name))
+        self.code.emit(Opcode.NEW_CHAIN)
 
 # ==============================================================================
 # NITOSUPREMEEXECUTOR — the Verifiable State-Transition Executor (deterministic VM)
@@ -724,6 +927,8 @@ class NitoSupremeExecutor:
             val = self.code.constants[arg]
             if isinstance(val, NitoBlock):
                 val = NitoBlock(val.name, val.params, val.bytecode, self.environment)
+            elif isinstance(val, ChainTemplate):
+                val = ChainTemplate(val.name, val.state_inits, val.transitions, self.environment)
             self.stack.append(val)
         elif op == Opcode.LOAD_NAME:
             self.stack.append(self.environment.get(self.code.names[arg]))
@@ -761,11 +966,18 @@ class NitoSupremeExecutor:
             args = [self.pop() for _ in range(arg)][::-1]
             callee = self.pop()
             if isinstance(callee, NitoNativeFunction):
+                if _TRANSITION_DEPTH > 0:
+                    raise NitoError(f"a chain transition must stay deterministic; it can't call the external function '{callee.name}'.")
                 self.stack.append(callee.call(args))
             elif isinstance(callee, NitoBlock):
                 self.stack.append(callee.call(self, args))
             else:
                 raise NitoError(f"'{nito_str(callee)}' is not a block you can call.")
+        elif op == Opcode.NEW_CHAIN:
+            tmpl = self.pop()
+            if not isinstance(tmpl, ChainTemplate):
+                raise NitoError(f"'{nito_str(tmpl)}' is not a chain you can create with 'new'.")
+            self.stack.append(tmpl.instantiate())
         elif op == Opcode.RETURN_VALUE:
             self.ip = len(self.code.instructions)
         elif op == Opcode.POP_TOP:
@@ -782,6 +994,7 @@ class NitoSupremeExecutor:
     def _get_property(self, obj, name):
         # Nito-safe navigation: missing data yields Nito instead of crashing.
         if is_nito(obj): return Nito
+        if isinstance(obj, ChainInstance): return obj.get_property(name)
         if isinstance(obj, dict): return obj[name] if name in obj else Nito
         try: return getattr(obj, name)
         except AttributeError: return Nito

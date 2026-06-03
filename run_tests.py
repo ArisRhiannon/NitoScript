@@ -111,6 +111,88 @@ def test_errors_are_real_not_healed():
     print("ok  9 errors surface honestly (no silent healing / fallback)")
 
 
+WALLET = (
+    "chain Wallet:\n"
+    "    state:\n        balance = 0\n"
+    "    block deposit(amount):\n        balance = balance + amount\n"
+    "    block withdraw(amount):\n"
+    "        if balance >= amount:\n            balance = balance - amount\n"
+    "        else:\n            fail \"Insufficient funds\"\n"
+)
+
+
+def test_state_chain_basics():
+    src = WALLET + ("let w = new Wallet()\nw.deposit(100)\nw.withdraw(30)\nshow w.balance\n")
+    assert run(src).strip() == "70"
+    print("ok 10 state chain: state + transitions")
+
+
+def test_transition_atomicity():
+    # An overdraw fails and must leave state AND history untouched.
+    src = WALLET + (
+        "let w = new Wallet()\n"
+        "w.deposit(50)\n"
+        "if w.withdraw(999) == Nito:\n    show \"no\"\n"  # never reached; the line fails
+    )
+    try:
+        run(src)
+        assert False, "overdraw should have failed"
+    except NitoError:
+        pass
+    # Inspect via the Python API that state/history rolled back.
+    from nito import Interpreter
+    interp = Interpreter()
+    interp.run(WALLET + "let w = new Wallet()\nw.deposit(50)\n")
+    w = interp.global_env.get("w")
+    before = (dict(w.state), list(w.history), w.root)
+    try:
+        w.apply_transition("withdraw", [999])
+    except NitoError:
+        pass
+    assert (w.state, w.history, w.root) == before, "failed transition must not mutate the chain"
+    print("ok 11 transitions are atomic (failed action changes nothing)")
+
+
+def test_verify_by_replay_and_tamper():
+    from nito import Interpreter, next_root
+    interp = Interpreter()
+    interp.run(WALLET + "let w = new Wallet()\nw.deposit(100)\nw.withdraw(40)\n")
+    w = interp.global_env.get("w")
+    assert w.state["balance"] == 60
+    assert w.verify() is True
+    assert w.replay() == w.root           # deterministic replay reproduces the head
+    assert len(w.root) == 64              # sha-256 hex
+    # Tamper with current state -> head no longer matches the replayed history.
+    w.state["balance"] = 9999
+    assert w.verify() is False
+    print("ok 12 verify-by-replay holds, and tampering is detected")
+
+
+def test_history_tamper_detected():
+    from nito import Interpreter
+    interp = Interpreter()
+    interp.run(WALLET + "let w = new Wallet()\nw.deposit(100)\nw.withdraw(40)\n")
+    w = interp.global_env.get("w")
+    # Rewrite a past transition's argument (40 -> 1) but keep the old roots.
+    name, args, root = w.history[1]
+    w.history[1] = (name, [1], root)
+    assert w.verify() is False
+    print("ok 13 rewriting past history breaks the hash-link")
+
+
+def test_chain_determinism_guard():
+    # A transition may not call external (FFI) functions, even indirectly.
+    src = (
+        "use math.sqrt\n"
+        "chain C:\n    state:\n        x = 0\n"
+        "    block bad(n):\n        x = sqrt(n)\n"
+        "let c = new C()\n"
+        "c.bad(4)\n"
+    )
+    expect_error(src, NitoError)
+    print("ok 14 determinism guard blocks external calls inside transitions")
+
+
 if __name__ == "__main__":
     test_let_and_arithmetic()
     test_strings_and_booleans()
@@ -121,4 +203,9 @@ if __name__ == "__main__":
     test_nito_is_central()
     test_ffi_allowlist()
     test_errors_are_real_not_healed()
+    test_state_chain_basics()
+    test_transition_atomicity()
+    test_verify_by_replay_and_tamper()
+    test_history_tamper_detected()
+    test_chain_determinism_guard()
     print("\nAll NitoScript v0.2.0 tests passed.")
