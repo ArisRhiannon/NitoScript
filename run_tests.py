@@ -193,6 +193,44 @@ def test_chain_determinism_guard():
     print("ok 14 determinism guard blocks external calls inside transitions")
 
 
+def test_nito_value_unit():
+    assert run("show 100 nito\n").strip() == "Ñ100"
+    assert run("show 1 nitter\n").strip() == "1 Nitter"
+    assert run("show 5 nitters\n").strip() == "5 Nitters"
+    assert run("show 100 nito + 50 nito\n").strip() == "Ñ150"
+    assert run("show 1 nito - 50 nitters\n").strip() == "50 Nitters"   # 100 - 50 nitters
+    assert run("show 3 nito - 50 nitters\n").strip() == "Ñ2.50"
+    assert run("show 100 nito > 50 nito\n").strip() == "true"
+    assert run("show 2 nito * 3\n").strip() == "Ñ6"
+    expect_error("show 100 nito + 5\n", NitoError)                      # can't mix units
+    print("ok 15 Nito is the unit of value, Nitters are the fraction (1 Nito = 100 Nitters)")
+
+
+def test_wallet_denominated_in_nito():
+    src = (
+        "chain Wallet:\n"
+        "    state:\n        balance = 0 nito\n"
+        "    block deposit(amount):\n        balance = balance + amount\n"
+        "    block withdraw(amount):\n"
+        "        if balance >= amount:\n            balance = balance - amount\n"
+        "        else:\n            fail \"Insufficient funds\"\n"
+        "let w = new Wallet()\n"
+        "w.deposit(100 nito)\n"
+        "w.withdraw(30 nito)\n"
+        "show w.balance\n"
+        "show w.verify()\n"
+    )
+    out = [l for l in run(src).splitlines() if l]
+    assert out[0] == "Ñ70", out
+    assert out[1] == "true"
+    print("ok 16 wallet balances are denominated in Nito (Ñ70) and still verify")
+
+
+def test_dunder_introspection_blocked():
+    assert run('show "x".__class__\n').strip() == "Nito"   # no Python-internals leak
+    print("ok 17 dunder introspection is blocked (returns Nito)")
+
+
 if __name__ == "__main__":
     test_let_and_arithmetic()
     test_strings_and_booleans()
@@ -208,4 +246,7 @@ if __name__ == "__main__":
     test_verify_by_replay_and_tamper()
     test_history_tamper_detected()
     test_chain_determinism_guard()
+    test_nito_value_unit()
+    test_wallet_denominated_in_nito()
+    test_dunder_introspection_blocked()
     print("\nAll NitoScript v0.2.0 tests passed.")

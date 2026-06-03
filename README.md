@@ -3,10 +3,10 @@
 ![NitoScript Banner](assets/nitoscript_banner.png)
 
 <p align="left">
-  <a href="https://github.com/ArisRhiannon/NitoScript"><img src="https://img.shields.io/badge/Version-0.2.0-blueviolet?style=flat-square" alt="Version"></a>
+  <a href="https://github.com/ArisRhiannon/NitoScript"><img src="https://img.shields.io/badge/Version-0.2.1-blueviolet?style=flat-square" alt="Version"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/License-MIT-blue?style=flat-square" alt="License"></a>
   <a href="https://www.python.org/"><img src="https://img.shields.io/badge/Python-3.8%2B-brightgreen?style=flat-square" alt="Python"></a>
-  <a href="run_tests.py"><img src="https://img.shields.io/badge/Tests-14%2F14-success?style=flat-square" alt="Tests"></a>
+  <a href="run_tests.py"><img src="https://img.shields.io/badge/Tests-17%2F17-success?style=flat-square" alt="Tests"></a>
 </p>
 
 **A comfy, beginner-friendly language where every program is a *Chain* of *Blocks* — a

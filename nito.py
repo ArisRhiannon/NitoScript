@@ -14,7 +14,7 @@ from contextlib import redirect_stdout
 from enum import Enum, auto
 from typing import List, Dict, Set, Optional, Any
 
-__version__ = "0.2.0"
+__version__ = "0.2.1"
 
 # ==============================================================================
 # FFI SECURITY ALLOWLIST
@@ -53,9 +53,39 @@ Nito = NitoType()
 def is_nito(value: Any) -> bool:
     return isinstance(value, NitoType)
 
+# ------------------------------------------------------------------
+# Nito as the native unit of value: 1 Nito = 100 Nitters (the fraction).
+# Amounts are written `100 nito`, `5 nitters`, `1 nitter` and stored as an
+# integer count of Nitters so ledger math is exact (no floating-point drift).
+# ------------------------------------------------------------------
+NITTERS_PER_NITO = 100
+
+def nitos_render(nitters: int) -> str:
+    if nitters % NITTERS_PER_NITO == 0:
+        return f"Ñ{nitters // NITTERS_PER_NITO}"
+    if -NITTERS_PER_NITO < nitters < NITTERS_PER_NITO:
+        return f"{nitters} " + ("Nitter" if abs(nitters) == 1 else "Nitters")
+    return f"Ñ{nitters / NITTERS_PER_NITO:.2f}"
+
+class Nitos:
+    """A quantity of value denominated in Nito (held as integer Nitters)."""
+    __slots__ = ("nitters",)
+    def __init__(self, nitters: int): self.nitters = int(nitters)
+    @property
+    def nito(self) -> float: return self.nitters / NITTERS_PER_NITO
+    def __bool__(self) -> bool: return self.nitters != 0
+    def __eq__(self, o: Any) -> bool: return isinstance(o, Nitos) and o.nitters == self.nitters
+    def __ne__(self, o: Any) -> bool: return not self.__eq__(o)
+    def __hash__(self) -> int: return hash(("Nitos", self.nitters))
+    def __repr__(self) -> str: return nitos_render(self.nitters)
+
+def is_amount(value: Any) -> bool:
+    return isinstance(value, Nitos)
+
 def nito_str(value: Any) -> str:
     """Human-friendly rendering used by `show` and string concatenation."""
     if is_nito(value): return "Nito"
+    if isinstance(value, Nitos): return nitos_render(value.nitters)
     if value is True: return "true"
     if value is False: return "false"
     if isinstance(value, float) and value.is_integer():
@@ -540,7 +570,12 @@ class Parser:
         if self.match(TokenType.NITO): return LiteralNode(Nito)
         if self.match(TokenType.NUMBER):
             v = self.previous().value
-            return LiteralNode(float(v) if "." in v else int(v))
+            num = float(v) if "." in v else int(v)
+            if self.check(TokenType.IDENTIFIER) and self.peek().value in ("nito", "nitter", "nitters"):
+                unit = self.advance().value
+                nitters = round(num * NITTERS_PER_NITO) if unit == "nito" else round(num)
+                return LiteralNode(Nitos(nitters))
+            return LiteralNode(num)
         if self.match(TokenType.STRING): return LiteralNode(self.previous().value)
         if self.match(TokenType.IDENTIFIER): return VariableNode(self.previous().value)
         if self.match(TokenType.LPAREN):
@@ -554,6 +589,25 @@ class Parser:
 # SEMANTICS — Nito-aware operators
 # ==============================================================================
 
+def _nitos_op(left: Any, op: str, right: Any) -> Any:
+    both = is_amount(left) and is_amount(right)
+    if op in ("+", "-"):
+        if not both:
+            raise NitoError("both sides must be Nito amounts (write e.g. '5 nito').")
+        n = left.nitters + right.nitters if op == "+" else left.nitters - right.nitters
+        return Nitos(n)
+    if op in ("<", ">", "<=", ">="):
+        if not both:
+            raise NitoError("you can only compare Nito amounts with Nito amounts.")
+        a, b = left.nitters, right.nitters
+        return {"<": a < b, ">": a > b, "<=": a <= b, ">=": a >= b}[op]
+    if op == "*":
+        amount, scalar = (left, right) if is_amount(left) else (right, left)
+        if isinstance(scalar, (int, float)):
+            return Nitos(round(amount.nitters * scalar))
+        raise NitoError("a Nito amount can only be scaled by a plain number.")
+    raise NitoError(f"operator '{op}' is not defined for Nito amounts.")
+
 def evaluate_binary_op(left: Any, op: str, right: Any) -> Any:
     if op == "or": return left if bool(left) else right
     if op == "and": return right if bool(left) else left
@@ -563,6 +617,14 @@ def evaluate_binary_op(left: Any, op: str, right: Any) -> Any:
     # Nito propagation: absence flows through arithmetic and ordering.
     if is_nito(left) or is_nito(right):
         return Nito
+
+    # String concatenation renders any operand (incl. Nito amounts) nicely.
+    if op == "+" and (isinstance(left, str) or isinstance(right, str)):
+        return nito_str(left) + nito_str(right)
+
+    # Value arithmetic in Nito (the ledger's unit of account).
+    if is_amount(left) or is_amount(right):
+        return _nitos_op(left, op, right)
 
     if op == "<": return left < right
     if op == ">": return left > right
@@ -643,6 +705,7 @@ _TRANSITION_DEPTH = 0
 def _canonical(value: Any) -> str:
     """Unambiguous, deterministic serialization used for state roots."""
     if is_nito(value): return "N"
+    if isinstance(value, Nitos): return "n" + str(value.nitters)
     if value is True: return "T"
     if value is False: return "F"
     if isinstance(value, bool): return "T" if value else "F"
@@ -997,6 +1060,7 @@ class NitoSupremeExecutor:
         # Nito-safe navigation: missing data yields Nito instead of crashing.
         if is_nito(obj): return Nito
         if isinstance(obj, ChainInstance): return obj.get_property(name)
+        if name.startswith("__"): return Nito
         if isinstance(obj, dict): return obj[name] if name in obj else Nito
         try: return getattr(obj, name)
         except AttributeError: return Nito
@@ -1066,6 +1130,10 @@ def main():
             run_code(source)
         except (NitoError, NitoSyntaxError) as e:
             print(f"[Error] {e}", file=sys.stderr); sys.exit(1)
+        except MemoryError:
+            print("[Error] out of memory — the program tried to allocate too much.", file=sys.stderr); sys.exit(1)
+        except RecursionError:
+            print("[Error] too much recursion.", file=sys.stderr); sys.exit(1)
     else:
         start_repl()
 

@@ -3,10 +3,12 @@
 # A 'chain' has 'state' (what it remembers) and 'block' transitions
 # (the only ways to change it). Every change is recorded and hash-linked,
 # so the chain can prove its own history by replay — no mining, no servers.
+#
+# Value is denominated in Nito: 1 Nito = 100 Nitters (the fraction).
 
 chain Wallet:
     state:
-        balance = 0
+        balance = 0 nito
     block deposit(amount):
         balance = balance + amount
     block withdraw(amount):
@@ -15,16 +17,12 @@ chain Wallet:
         else:
             fail "Insufficient funds"     # a failed action changes nothing
 
-# Create one with 'new', then drive it with its actions.
 let w = new Wallet()
-w.deposit(100)
-w.withdraw(30)
+w.deposit(100 nito)
+w.withdraw(30 nito)
+w.withdraw(50 nitters)                     # 0.50 Nito
 
-show "balance: " + w.balance             # 70
-show "history: " + w.history             # the ordered ledger of actions
-show "root:    " + w.root                # SHA-256 fingerprint of the whole state
-
-# verify() re-runs the entire history and checks every hash-link plus the
-# live state. A single machine can validate the chain this way, cheaply.
-show "verify:  " + w.verify()            # true
-show "replay reproduces root: " + (w.replay() == w.root)   # true
+show "balance: " + w.balance               # Ñ69.50
+show "root:    " + w.root                  # SHA-256 fingerprint of the whole state
+show "verify:  " + w.verify()              # true
+show "replay reproduces root: " + (w.replay() == w.root)
