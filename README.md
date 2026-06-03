@@ -285,7 +285,7 @@ python3 run_tests.py
 
 ## Licencia
 
-Este proyecto está bajo la Licencia MIT. Para obtener más detalles, consulte el archivo [LICENSE](file:///home/ubuntu/nitoscript/LICENSE).
+Este proyecto está bajo la Licencia MIT. Para obtener más detalles, consulte el archivo [LICENSE](LICENSE).
 
 Copyright &copy; 2026 ArisRhiannon
 
