@@ -5,6 +5,19 @@ from enum import Enum, auto
 from typing import List, Dict, Set, Optional, Tuple, Any
 
 # ==============================================================================
+# FFI SECURITY ALLOWLIST
+# ==============================================================================
+# nito_importar maps Python callables into the VM. Without restriction this is a
+# remote-code-execution primitive (e.g. `nito_importar os.system`). Only pure,
+# side-effect-free numeric/utility modules and builtins are permitted.
+ALLOWED_FFI_MODULES: Set[str] = {"math", "random", "statistics"}
+ALLOWED_FFI_BUILTINS: Set[str] = {
+    "abs", "round", "min", "max", "sum", "len", "pow", "divmod",
+    "int", "float", "str", "bool", "ord", "chr", "sorted", "range",
+}
+
+
+# ==============================================================================
 # AST NODES
 # ==============================================================================
 
@@ -1466,6 +1479,9 @@ class NitoSupremeExecutor:
             name = self.code.names[arg]
             val = self.pop_stack()
             self.environment.assign(name, val)
+            # Assignment is an expression: leave its value on the stack so the
+            # enclosing statement's POP_TOP balances (prevents stack underflow).
+            self.stack.append(val)
         elif op == Opcode.DECLARE_NAME:
             name_idx, is_const = arg
             name = self.code.names[name_idx]
@@ -1534,13 +1550,26 @@ class NitoSupremeExecutor:
             module_name = self.code.constants[module_idx]
             try:
                 if module_name:
+                    if module_name not in ALLOWED_FFI_MODULES:
+                        raise ImportError(
+                            f"FFI module '{module_name}' is not in the security allowlist "
+                            f"{sorted(ALLOWED_FFI_MODULES)}."
+                        )
                     mod = __import__(module_name, fromlist=[name])
                     func = getattr(mod, name)
                 else:
+                    if name not in ALLOWED_FFI_BUILTINS:
+                        raise ImportError(
+                            f"FFI builtin '{name}' is not in the security allowlist."
+                        )
                     import builtins
                     func = getattr(builtins, name)
+                if not callable(func):
+                    raise ImportError(f"FFI target '{name}' is not callable.")
                 self.environment.define(name, NitoNativeFunction(name, func))
                 print(f"[FFI] Importada función nativa '{module_name + '.' if module_name else ''}{name}' con éxito.")
+            except ImportError:
+                raise
             except Exception as e:
                 raise ImportError(f"Cannot import native function '{name}' from '{module_name}': {e}")
         elif op == Opcode.POP_TOP:
@@ -1811,12 +1840,16 @@ def run_code(source: str, evaluator: Evaluator) -> Any:
     except SupremeViolationError as e:
         # Never catch or heal heresy; propagate the exception
         raise e
+    except (ImportError, ZeroDivisionError) as e:
+        # FFI security denials and uncorrectable math faults are real errors,
+        # not typos for the fallback engine to "heal". Surface them honestly.
+        raise e
     except Exception as e:
         # Fallback to AI System for any syntax, lexical, or general runtime error (like NameError)
         return ai_fallback_interpreter(source, evaluator.environment)
 
 def start_repl():
-    print("Welcome to NitoScript Interactive REPL (v0.1.0)")
+    print("Welcome to NitoScript Interactive REPL (v0.1.3)")
     evaluator = Evaluator()
     while True:
         try:
@@ -1829,6 +1862,8 @@ def start_repl():
         except (KeyboardInterrupt, EOFError):
             print("\nGoodbye.")
             break
+        except (SupremeViolationError, ImportError, ZeroDivisionError) as e:
+            print(f"[Error] {e}", file=sys.stderr)
 
 def main():
     if len(sys.argv) > 1:
@@ -1840,6 +1875,9 @@ def main():
             run_code(source, evaluator)
         except FileNotFoundError:
             print(f"Error: File not found '{filepath}'", file=sys.stderr)
+            sys.exit(1)
+        except (SupremeViolationError, ImportError, ZeroDivisionError) as e:
+            print(f"[Error] {e}", file=sys.stderr)
             sys.exit(1)
     else:
         start_repl()

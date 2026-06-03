@@ -324,6 +324,56 @@ def test_quantumnito_schrodinger_schema():
     assert "default.png" in output2
     print("Test 13 Passed!\n")
 
+def test_while_loop_and_reassignment():
+    print("--- Running Test 14: While Loop & Variable Reassignment (Real VM) ---")
+    source = (
+        "nito i = 0\n"
+        "nito_mientras (i < 3) haz {\n"
+        "    nito_imprimir(i)\n"
+        "    i = i + 1\n"
+        "}\n"
+        "nito_imprimir(i)\n"
+    )
+
+    old_stdout = sys.stdout
+    sys.stdout = buffer = io.StringIO()
+
+    evaluator = Evaluator()
+    run_code(source, evaluator)
+
+    sys.stdout = old_stdout
+    output = buffer.getvalue()
+    print("Output captured:\n", output)
+
+    # Must run on the real bytecode VM, never degrade to the fallback engine
+    assert "Activating Fallback AI System..." not in output, "Reassignment must not crash the VM into fallback"
+    # The loop must actually iterate three times: 0, 1, 2
+    lines = [l for l in output.splitlines() if l.strip() in ("0", "1", "2", "3")]
+    assert lines == ["0", "1", "2", "3"], f"Loop did not iterate correctly: {lines}"
+    print("Test 14 Passed!\n")
+
+def test_reassignment_expression_value():
+    print("--- Running Test 15: Assignment Yields Its Value (Real VM) ---")
+    source = (
+        "nito x = 1\n"
+        "x = 41\n"
+        "nito_imprimir(x + 1)\n"
+    )
+
+    old_stdout = sys.stdout
+    sys.stdout = buffer = io.StringIO()
+
+    evaluator = Evaluator()
+    run_code(source, evaluator)
+
+    sys.stdout = old_stdout
+    output = buffer.getvalue()
+    print("Output captured:\n", output)
+
+    assert "Activating Fallback AI System..." not in output
+    assert "42" in output
+    print("Test 15 Passed!\n")
+
 if __name__ == "__main__":
     test_levenshtein_healing()
     test_indentation_blocks()
@@ -348,5 +398,9 @@ if __name__ == "__main__":
     
     # NitoScript 0.1.2 QuantumNito tests
     test_quantumnito_schrodinger_schema()
+    
+    # NitoScript 0.1.3 control-flow & state tests
+    test_while_loop_and_reassignment()
+    test_reassignment_expression_value()
     
     print("All NitoScript tests completed successfully!")
