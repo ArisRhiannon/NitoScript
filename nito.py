@@ -1,884 +1,463 @@
+"""NitoScript v0.2.0 — a comfy, deterministic Block-and-Chain language.
+
+Everything turns around `Nito`: the empty value, the origin of all state, and the
+absence that propagates safely through any operation (collapse it with `or`).
+
+This module is the language core: lexer -> parser -> compiler -> NitoSupremeExecutor
+(the deterministic bytecode VM). Blocks (functions) and the `|>` flow operator are
+implemented here; State Chains and verify-by-replay arrive in later 0.2.0 phases.
+"""
 import sys
-import re
-import math
 from enum import Enum, auto
-from typing import List, Dict, Set, Optional, Tuple, Any
+from typing import List, Dict, Set, Optional, Any
 
 # ==============================================================================
 # FFI SECURITY ALLOWLIST
 # ==============================================================================
-# nito_importar maps Python callables into the VM. Without restriction this is a
-# remote-code-execution primitive (e.g. `nito_importar os.system`). Only pure,
-# side-effect-free numeric/utility modules and builtins are permitted.
+# `use` maps Python callables into the VM. Restrict it to pure, side-effect-free
+# numeric/utility targets so it can never become a remote-code-execution primitive.
 ALLOWED_FFI_MODULES: Set[str] = {"math", "random", "statistics"}
 ALLOWED_FFI_BUILTINS: Set[str] = {
     "abs", "round", "min", "max", "sum", "len", "pow", "divmod",
     "int", "float", "str", "bool", "ord", "chr", "sorted", "range",
 }
 
+# ==============================================================================
+# NITO — THE CENTRAL VALUE (empty / origin / propagating absence)
+# ==============================================================================
+
+class NitoType:
+    """Singleton empty value. Falsy, prints as 'Nito', and propagates through
+    arithmetic (Nito + 5 -> Nito) so missing data never crashes a program."""
+    _instance: Optional["NitoType"] = None
+
+    def __new__(cls) -> "NitoType":
+        if cls._instance is None:
+            cls._instance = super().__new__(cls)
+        return cls._instance
+
+    def __repr__(self) -> str: return "Nito"
+    def __str__(self) -> str: return "Nito"
+    def __bool__(self) -> bool: return False
+    def __eq__(self, other: Any) -> bool: return isinstance(other, NitoType)
+    def __ne__(self, other: Any) -> bool: return not self.__eq__(other)
+    def __hash__(self) -> int: return hash("__Nito__")
+
+Nito = NitoType()
+
+def is_nito(value: Any) -> bool:
+    return isinstance(value, NitoType)
+
+def nito_str(value: Any) -> str:
+    """Human-friendly rendering used by `show` and string concatenation."""
+    if is_nito(value): return "Nito"
+    if value is True: return "true"
+    if value is False: return "false"
+    if isinstance(value, float) and value.is_integer():
+        return str(int(value))
+    return str(value)
 
 # ==============================================================================
 # AST NODES
 # ==============================================================================
 
-class ASTNode:
-    pass
+class ASTNode: pass
 
 class ProgramNode(ASTNode):
-    def __init__(self, statements: List[ASTNode]):
-        self.statements = statements
+    def __init__(self, statements: List[ASTNode]): self.statements = statements
 
-class VarDeclNode(ASTNode):
-    def __init__(self, name: str, initializer: ASTNode, is_const: bool):
-        self.name = name
-        self.initializer = initializer
-        self.is_const = is_const
-
-class FunDeclNode(ASTNode):
-    def __init__(self, name: str, params: List[str], body: 'BlockNode'):
-        self.name = name
-        self.params = params
-        self.body = body
-
-class BlockNode(ASTNode):
-    def __init__(self, statements: List[ASTNode]):
-        self.statements = statements
-
-class IfNode(ASTNode):
-    def __init__(self, cond: ASTNode, then_b: BlockNode, elifs: List[Tuple[ASTNode, BlockNode]], else_b: Optional[BlockNode]):
-        self.condition = cond
-        self.then_branch = then_b
-        self.elif_branches = elifs
-        self.else_branch = else_b
-
-class WhileNode(ASTNode):
-    def __init__(self, cond: ASTNode, body: BlockNode):
-        self.condition = cond
-        self.body = body
-
-class ReturnNode(ASTNode):
-    def __init__(self, value: Optional[ASTNode]):
-        self.value = value
-
-class PrintNode(ASTNode):
-    def __init__(self, expression: ASTNode):
-        self.expression = expression
-
-class ImportNode(ASTNode):
-    def __init__(self, module: str, name: str):
-        self.module = module
-        self.name = name
-
-class ExprStmtNode(ASTNode):
-    def __init__(self, expression: ASTNode):
-        self.expression = expression
+class LetNode(ASTNode):
+    def __init__(self, name: str, initializer: ASTNode):
+        self.name, self.initializer = name, initializer
 
 class AssignNode(ASTNode):
     def __init__(self, name: str, value: ASTNode):
-        self.name = name
-        self.value = value
+        self.name, self.value = name, value
+
+class BlockDeclNode(ASTNode):
+    def __init__(self, name: str, params: List[str], body: "SuiteNode"):
+        self.name, self.params, self.body = name, params, body
+
+class SuiteNode(ASTNode):
+    def __init__(self, statements: List[ASTNode]): self.statements = statements
+
+class IfNode(ASTNode):
+    def __init__(self, cond, then_b, elifs, else_b):
+        self.condition, self.then_branch = cond, then_b
+        self.elif_branches, self.else_branch = elifs, else_b
+
+class WhileNode(ASTNode):
+    def __init__(self, cond, body): self.condition, self.body = cond, body
+
+class GiveNode(ASTNode):
+    def __init__(self, value: Optional[ASTNode]): self.value = value
+
+class ShowNode(ASTNode):
+    def __init__(self, expression: ASTNode): self.expression = expression
+
+class FailNode(ASTNode):
+    def __init__(self, expression: ASTNode): self.expression = expression
+
+class UseNode(ASTNode):
+    def __init__(self, module: str, name: str): self.module, self.name = module, name
+
+class ExprStmtNode(ASTNode):
+    def __init__(self, expression: ASTNode): self.expression = expression
 
 class BinaryOpNode(ASTNode):
-    def __init__(self, left: ASTNode, op: str, right: ASTNode):
-        self.left = left
-        self.op = op
-        self.right = right
+    def __init__(self, left, op, right): self.left, self.op, self.right = left, op, right
 
 class UnaryOpNode(ASTNode):
-    def __init__(self, op: str, operand: ASTNode):
-        self.op = op
-        self.operand = operand
+    def __init__(self, op, operand): self.op, self.operand = op, operand
 
 class CallNode(ASTNode):
-    def __init__(self, callee: ASTNode, arguments: List[ASTNode]):
-        self.callee = callee
-        self.arguments = arguments
-
-class VariableNode(ASTNode):
-    def __init__(self, name: str):
-        self.name = name
-
-class LiteralNode(ASTNode):
-    def __init__(self, value: Any):
-        self.value = value
+    def __init__(self, callee, arguments): self.callee, self.arguments = callee, arguments
 
 class GetNode(ASTNode):
-    def __init__(self, obj: ASTNode, name: str):
-        self.obj = obj
-        self.name = name
+    def __init__(self, obj, name): self.obj, self.name = obj, name
+
+class VariableNode(ASTNode):
+    def __init__(self, name: str): self.name = name
+
+class LiteralNode(ASTNode):
+    def __init__(self, value: Any): self.value = value
 
 # ==============================================================================
 # TOKENS & LEXER
 # ==============================================================================
 
 class TokenType(Enum):
-    # Keywords
-    NITO_VAR = auto()          # nito
-    NITO_CONST = auto()        # nitosexo
-    NITO_FUN = auto()          # nitosegs
-    NITO_SI = auto()           # nito_si
-    NITO_SINO_SI = auto()      # nito_sino_si
-    NITO_SINO = auto()         # nito_sino
-    NITO_MIENTRAS = auto()     # nito_mientras
-    NITO_RETORNA = auto()      # nito_retorna
-    NITO_IMPRIMIR = auto()     # nito_imprimir
-    NITO_IMPORTAR = auto()     # nito_importar
-    NITO_AND = auto()          # nito_y
-    NITO_OR = auto()           # nito_o
-    NITO_NOT = auto()          # nito_no
-    
-    # Literals
-    LIT_TRUE = auto()          # NITO
-    LIT_FALSE = auto()         # NO_NITO
-    LIT_SUPREME = auto()       # Nito
-    IDENTIFIER = auto()
-    NUMBER = auto()
-    STRING = auto()
-    
-    # Punctuators & Operators
-    ASSIGN = auto()            # =
-    PLUS = auto()              # +
-    MINUS = auto()             # -
-    STAR = auto()              # *
-    SLASH = auto()             # /
-    MODULO = auto()            # %
-    EQ = auto()                # ==
-    NEQ = auto()               # !=
-    LT = auto()                # <
-    GT = auto()                # >
-    LTE = auto()               # <=
-    GTE = auto()               # >=
-    LPAREN = auto()            # (
-    RPAREN = auto()            # )
-    LBRACE = auto()            # {
-    RBRACE = auto()            # }
-    COMMA = auto()             # ,
-    SEMICOLON = auto()         # ;
-    DOT = auto()               # .
-    
-    # Indentation & Block structure
-    NEWLINE = auto()
-    INDENT = auto()
-    DEDENT = auto()
-    
-    # Natural language block initiators
-    ENTONCES = auto()          # entonces
-    HAZ = auto()               # haz
-    
-    EOF = auto()
+    LET = auto(); IF = auto(); ELIF = auto(); ELSE = auto(); WHILE = auto()
+    BLOCK = auto(); GIVE = auto(); SHOW = auto(); FAIL = auto(); USE = auto()
+    AND = auto(); OR = auto(); NOT = auto()
+    TRUE = auto(); FALSE = auto(); NITO = auto()
+    IDENTIFIER = auto(); NUMBER = auto(); STRING = auto()
+    ASSIGN = auto(); PLUS = auto(); MINUS = auto(); STAR = auto(); SLASH = auto(); MODULO = auto()
+    EQ = auto(); NEQ = auto(); LT = auto(); GT = auto(); LTE = auto(); GTE = auto()
+    PIPE = auto()  # |>
+    LPAREN = auto(); RPAREN = auto(); COMMA = auto(); DOT = auto(); COLON = auto()
+    NEWLINE = auto(); INDENT = auto(); DEDENT = auto(); EOF = auto()
 
 KEYWORDS = {
-    "nito": TokenType.NITO_VAR,
-    "nitosexo": TokenType.NITO_CONST,
-    "nitosegs": TokenType.NITO_FUN,
-    "nito_si": TokenType.NITO_SI,
-    "nito_sino_si": TokenType.NITO_SINO_SI,
-    "nito_sino": TokenType.NITO_SINO,
-    "nito_mientras": TokenType.NITO_MIENTRAS,
-    "nito_retorna": TokenType.NITO_RETORNA,
-    "nito_imprimir": TokenType.NITO_IMPRIMIR,
-    "nito_importar": TokenType.NITO_IMPORTAR,
-    "nito_y": TokenType.NITO_AND,
-    "nito_o": TokenType.NITO_OR,
-    "nito_no": TokenType.NITO_NOT,
-    "NITO": TokenType.LIT_TRUE,
-    "NO_NITO": TokenType.LIT_FALSE,
-    "Nito": TokenType.LIT_SUPREME,
-    "entonces": TokenType.ENTONCES,
-    "haz": TokenType.HAZ,
-    "nito_mayor": TokenType.GT,
-    "nito_menor": TokenType.LT
+    "let": TokenType.LET, "if": TokenType.IF, "elif": TokenType.ELIF,
+    "else": TokenType.ELSE, "while": TokenType.WHILE, "block": TokenType.BLOCK,
+    "give": TokenType.GIVE, "show": TokenType.SHOW, "fail": TokenType.FAIL,
+    "use": TokenType.USE, "and": TokenType.AND, "or": TokenType.OR, "not": TokenType.NOT,
+    "true": TokenType.TRUE, "false": TokenType.FALSE, "Nito": TokenType.NITO,
 }
 
-def levenshtein_distance(s1: str, s2: str) -> int:
-    if len(s1) < len(s2):
-        return levenshtein_distance(s2, s1)
-    if len(s2) == 0:
-        return len(s1)
-    
-    previous_row = range(len(s2) + 1)
-    for i, c1 in enumerate(s1):
-        current_row = [i + 1]
-        for j, c2 in enumerate(s2):
-            insertions = previous_row[j + 1] + 1
-            deletions = current_row[j] + 1
-            substitutions = previous_row[j] + (c1 != c2)
-            current_row.append(min(insertions, deletions, substitutions))
-        previous_row = current_row
-        
-    return previous_row[-1]
-
-def heal_token(word: str) -> Optional[TokenType]:
-    if len(word) < 3:
-        return None
-    best_match = None
-    min_dist = 999
-    best_kw = None
-    for kw, ttype in KEYWORDS.items():
-        dist = levenshtein_distance(word, kw)
-        # Limit distance depending on word length
-        max_allowed = 2 if len(word) >= 5 else 1
-        if dist <= max_allowed and dist < min_dist:
-            min_dist = dist
-            best_match = ttype
-            best_kw = kw
-    if best_match is not None:
-        print(f"[Lexer Warning] Auto-healed typo '{word}' to keyword '{best_kw}' (Levenshtein distance {min_dist})")
-        return best_match
-    return None
-
 class Token:
-    def __init__(self, token_type: TokenType, value: str, line: int, column: int):
-        self.type = token_type
-        self.value = value
-        self.line = line
-        self.column = column
+    def __init__(self, ttype, value, line, column):
+        self.type, self.value, self.line, self.column = ttype, value, line, column
+    def __repr__(self): return f"Token({self.type.name}, {self.value!r}, L{self.line}:C{self.column})"
 
-    def __repr__(self) -> str:
-        return f"Token({self.type.name}, {repr(self.value)}, L{self.line}:C{self.column})"
-
-class LexicalError(Exception):
+class NitoSyntaxError(Exception):
     def __init__(self, message: str, line: int, column: int):
-        super().__init__(f"Lexical Error at line {line}, column {column}: {message}")
+        self.line, self.column = line, column
+        super().__init__(f"line {line}, column {column}: {message}")
 
-class ParseError(Exception):
-    def __init__(self, message: str, token: Token):
-        super().__init__(f"Parse Error at line {token.line}, column {token.column}: {message} (found '{token.value}')")
-        self.token = token
+class NitoError(Exception):
+    """Raised by `fail` and by runtime faults; carries a beginner-friendly message."""
 
 class Lexer:
     def __init__(self, source: str):
-        self.source = source
-        self.pos = 0
-        self.line = 1
-        self.column = 1
+        self.source, self.pos, self.line, self.column = source, 0, 1, 1
         self.length = len(source)
-        
-        # Indentation & context state
         self.indent_stack = [0]
         self.paren_depth = 0
-        self.brace_depth = 0
         self.at_line_start = True
 
     def peek(self, offset: int = 0) -> str:
-        index = self.pos + offset
-        if index >= self.length:
-            return ""
-        return self.source[index]
+        i = self.pos + offset
+        return self.source[i] if i < self.length else ""
 
     def advance(self) -> str:
-        char = self.peek()
+        ch = self.peek()
         self.pos += 1
-        if char == '\n':
-            self.line += 1
-            self.column = 1
-        else:
-            self.column += 1
-        return char
+        if ch == "\n": self.line += 1; self.column = 1
+        else: self.column += 1
+        return ch
 
-    def skip_comments_and_inline_whitespace(self):
+    def skip_inline(self):
         while self.pos < self.length:
-            char = self.peek()
-            if char in (' ', '\t', '\r'):
-                self.advance()
-            elif char == '/' and self.peek(1) == '/':
-                # Single-line comment
-                while self.peek() != '\n' and self.pos < self.length:
-                    self.advance()
-            elif char == '/' and self.peek(1) == '*':
-                # Multi-line comment
-                self.advance() # '/'
-                self.advance() # '*'
-                while self.pos < self.length:
-                    if self.peek() == '*' and self.peek(1) == '/':
-                        self.advance() # '*'
-                        self.advance() # '/'
-                        break
-                    self.advance()
-            else:
-                break
+            ch = self.peek()
+            if ch in (" ", "\t", "\r"): self.advance()
+            elif ch == "#":
+                while self.peek() not in ("\n", ""): self.advance()
+            else: break
 
     def read_number(self) -> Token:
-        start_col = self.column
-        num_str = ""
-        while self.peek().isdigit():
-            num_str += self.advance()
-        if self.peek() == '.' and self.peek(1).isdigit():
-            num_str += self.advance()
-            while self.peek().isdigit():
-                num_str += self.advance()
-        return Token(TokenType.NUMBER, num_str, self.line, start_col)
+        col, num = self.column, ""
+        while self.peek().isdigit(): num += self.advance()
+        if self.peek() == "." and self.peek(1).isdigit():
+            num += self.advance()
+            while self.peek().isdigit(): num += self.advance()
+        return Token(TokenType.NUMBER, num, self.line, col)
 
     def read_string(self) -> Token:
-        start_col = self.column
-        self.advance()  # Open quote
-        str_val = ""
+        col = self.column
+        self.advance()  # opening quote
+        out = ""
         while self.pos < self.length:
-            char = self.peek()
-            if char == '"':
-                self.advance()  # Close quote
-                return Token(TokenType.STRING, str_val, self.line, start_col)
-            elif char == '\\':
-                self.advance()  # escape char
-                escaped = self.advance()
-                if escaped == 'n': str_val += '\n'
-                elif escaped == 't': str_val += '\t'
-                elif escaped == 'r': str_val += '\r'
-                elif escaped == '"': str_val += '"'
-                elif escaped == '\\': str_val += '\\'
-                else: str_val += '\\' + escaped
+            ch = self.peek()
+            if ch == '"':
+                self.advance()
+                return Token(TokenType.STRING, out, self.line, col)
+            if ch == "\\":
+                self.advance()
+                esc = self.advance()
+                out += {"n": "\n", "t": "\t", "r": "\r", '"': '"', "\\": "\\"}.get(esc, "\\" + esc)
             else:
-                str_val += self.advance()
-        raise LexicalError("Unterminated string literal.", self.line, start_col)
+                out += self.advance()
+        raise NitoSyntaxError("unterminated string (missing closing quote).", self.line, col)
 
-    def match_phrase(self) -> Optional[Token]:
-        # Helper to check lookahead for natural language operators starting with "es"
-        start_pos = self.pos
-        start_line = self.line
-        start_col = self.column
-        
-        # Read the word "es"
-        word = ""
-        while self.peek().isalnum() or self.peek() == '_':
-            word += self.advance()
-            
-        if word != "es":
-            self.pos = start_pos
-            self.line = start_line
-            self.column = start_col
-            return None
-            
-        saved_pos = self.pos
-        saved_line = self.line
-        saved_col = self.column
-        
-        self.skip_comments_and_inline_whitespace()
-        
-        next_word = ""
-        while self.peek().isalnum() or self.peek() == '_':
-            next_word += self.advance()
-            
-        if next_word == "igual":
-            self.skip_comments_and_inline_whitespace()
-            third_word = ""
-            while self.peek().isalnum() or self.peek() == '_':
-                third_word += self.advance()
-            if third_word == "a":
-                return Token(TokenType.EQ, "es igual a", start_line, start_col)
-                
-        elif next_word == "mayor":
-            self.skip_comments_and_inline_whitespace()
-            third_word = ""
-            while self.peek().isalnum() or self.peek() == '_':
-                third_word += self.advance()
-            if third_word == "que":
-                return Token(TokenType.GT, "es mayor que", start_line, start_col)
-            elif third_word == "o":
-                self.skip_comments_and_inline_whitespace()
-                fourth = ""
-                while self.peek().isalnum() or self.peek() == '_':
-                    fourth += self.advance()
-                if fourth == "igual":
-                    self.skip_comments_and_inline_whitespace()
-                    fifth = ""
-                    while self.peek().isalnum() or self.peek() == '_':
-                        fifth += self.advance()
-                    if fifth == "a":
-                        return Token(TokenType.GTE, "es mayor o igual a", start_line, start_col)
-                        
-        elif next_word == "menor":
-            self.skip_comments_and_inline_whitespace()
-            third_word = ""
-            while self.peek().isalnum() or self.peek() == '_':
-                third_word += self.advance()
-            if third_word == "que":
-                return Token(TokenType.LT, "es menor que", start_line, start_col)
-            elif third_word == "o":
-                self.skip_comments_and_inline_whitespace()
-                fourth = ""
-                while self.peek().isalnum() or self.peek() == '_':
-                    fourth += self.advance()
-                if fourth == "igual":
-                    self.skip_comments_and_inline_whitespace()
-                    fifth = ""
-                    while self.peek().isalnum() or self.peek() == '_':
-                        fifth += self.advance()
-                    if fifth == "a":
-                        return Token(TokenType.LTE, "es menor o igual a", start_line, start_col)
-                        
-        self.pos = saved_pos
-        self.line = saved_line
-        self.column = saved_col
-        return Token(TokenType.ASSIGN, "es", start_line, start_col)
-
-    def read_identifier_or_keyword(self) -> Token:
-        if self.peek() == 'e' and self.peek(1) == 's' and not (self.peek(2).isalnum() or self.peek(2) == '_'):
-            phrase_tok = self.match_phrase()
-            if phrase_tok is not None:
-                return phrase_tok
-
-        start_col = self.column
-        ident_str = ""
-        while self.peek().isalnum() or self.peek() == '_':
-            ident_str += self.advance()
-            
-        if ident_str in KEYWORDS:
-            return Token(KEYWORDS[ident_str], ident_str, self.line, start_col)
-            
-        healed_type = heal_token(ident_str)
-        if healed_type is not None:
-            return Token(healed_type, ident_str, self.line, start_col)
-            
-        return Token(TokenType.IDENTIFIER, ident_str, self.line, start_col)
+    def read_word(self) -> Token:
+        col, word = self.column, ""
+        while self.peek().isalnum() or self.peek() == "_": word += self.advance()
+        if word in KEYWORDS: return Token(KEYWORDS[word], word, self.line, col)
+        return Token(TokenType.IDENTIFIER, word, self.line, col)
 
     def tokenize(self) -> List[Token]:
-        tokens = []
-        
+        tokens: List[Token] = []
         while self.pos < self.length:
-            if self.at_line_start:
+            if self.at_line_start and self.paren_depth == 0:
                 spaces = 0
-                while self.peek() in (' ', '\t'):
-                    char = self.advance()
-                    spaces += 4 if char == '\t' else 1
-                
-                next_c = self.peek()
-                if next_c in '\n\r' or (next_c == '/' and (self.peek(1) == '/' or self.peek(1) == '*')):
-                    self.skip_comments_and_inline_whitespace()
-                    if self.peek() in '\n\r':
-                        self.advance()
+                while self.peek() in (" ", "\t"):
+                    spaces += 4 if self.advance() == "\t" else 1
+                if self.peek() in ("\n", "\r", "#", ""):
+                    self.skip_inline()
+                    if self.peek() in ("\n", "\r"): self.advance()
+                    if self.pos >= self.length: break
                     continue
-                
-                current_indent = spaces
-                last_indent = self.indent_stack[-1]
-                
-                # Fuzzy Indentation Alignment: If current indent is within 3 spaces of the active block level, align it
-                if abs(current_indent - last_indent) < 3:
-                    current_indent = last_indent
-                
-                if current_indent > last_indent:
-                     self.indent_stack.append(current_indent)
-                     tokens.append(Token(TokenType.INDENT, str(current_indent), self.line, 1))
-                elif current_indent < last_indent:
-                     # Fuzzy alignment for dedents as well
-                     closest_level = min(self.indent_stack, key=lambda x: abs(x - current_indent))
-                     if abs(closest_level - current_indent) < 3:
-                         current_indent = closest_level
-                         
-                     while current_indent < self.indent_stack[-1]:
-                         self.indent_stack.pop()
-                         tokens.append(Token(TokenType.DEDENT, "", self.line, 1))
-                     if current_indent != self.indent_stack[-1]:
-                         print(f"[Lexer Warning] Indentation mismatch on line {self.line}. Auto-aligning.")
-                         self.indent_stack.append(current_indent)
+                if spaces > self.indent_stack[-1]:
+                    self.indent_stack.append(spaces)
+                    tokens.append(Token(TokenType.INDENT, "", self.line, 1))
+                while spaces < self.indent_stack[-1]:
+                    self.indent_stack.pop()
+                    tokens.append(Token(TokenType.DEDENT, "", self.line, 1))
+                if spaces != self.indent_stack[-1]:
+                    raise NitoSyntaxError("inconsistent indentation.", self.line, 1)
                 self.at_line_start = False
 
-            self.skip_comments_and_inline_whitespace()
-            if self.pos >= self.length:
-                break
-                
-            char = self.peek()
-            line, col = self.line, self.column
-            
-            if char in '\n\r':
+            self.skip_inline()
+            if self.pos >= self.length: break
+            ch, line, col = self.peek(), self.line, self.column
+
+            if ch in ("\n", "\r"):
                 self.advance()
-                if char == '\r' and self.peek() == '\n':
-                    self.advance()
-                
-                if self.paren_depth == 0 and self.brace_depth == 0:
-                    if tokens and tokens[-1].type not in (TokenType.NEWLINE, TokenType.INDENT, TokenType.DEDENT, TokenType.SEMICOLON):
+                if self.paren_depth == 0:
+                    if tokens and tokens[-1].type not in (TokenType.NEWLINE, TokenType.INDENT, TokenType.DEDENT):
                         tokens.append(Token(TokenType.NEWLINE, "\n", line, col))
                     self.at_line_start = True
                 continue
+            if ch.isdigit(): tokens.append(self.read_number()); continue
+            if ch.isalpha() or ch == "_": tokens.append(self.read_word()); continue
+            if ch == '"': tokens.append(self.read_string()); continue
 
-            if char.isdigit():
-                tokens.append(self.read_number())
-            elif char.isalpha() or char == '_':
-                tokens.append(self.read_identifier_or_keyword())
-            elif char == '"':
-                tokens.append(self.read_string())
-            elif char == '=':
+            two = ch + self.peek(1)
+            simple2 = {"==": TokenType.EQ, "!=": TokenType.NEQ, "<=": TokenType.LTE,
+                       ">=": TokenType.GTE, "|>": TokenType.PIPE}
+            if two in simple2:
+                self.advance(); self.advance()
+                tokens.append(Token(simple2[two], two, line, col)); continue
+
+            simple1 = {"=": TokenType.ASSIGN, "+": TokenType.PLUS, "-": TokenType.MINUS,
+                       "*": TokenType.STAR, "/": TokenType.SLASH, "%": TokenType.MODULO,
+                       "<": TokenType.LT, ">": TokenType.GT, ",": TokenType.COMMA,
+                       ".": TokenType.DOT, ":": TokenType.COLON}
+            if ch in simple1:
                 self.advance()
-                if self.peek() == '=':
-                    self.advance()
-                    tokens.append(Token(TokenType.EQ, "==", line, col))
-                else:
-                    tokens.append(Token(TokenType.ASSIGN, "=", line, col))
-            elif char == '!':
-                self.advance()
-                if self.peek() == '=':
-                    self.advance()
-                    tokens.append(Token(TokenType.NEQ, "!=", line, col))
-                else:
-                    raise LexicalError("Unexpected character '!'. Use 'nito_no' for logical negation.", line, col)
-            elif char == '<':
-                self.advance()
-                if self.peek() == '=':
-                    self.advance()
-                    tokens.append(Token(TokenType.LTE, "<=", line, col))
-                else:
-                    tokens.append(Token(TokenType.LT, "<", line, col))
-            elif char == '>':
-                self.advance()
-                if self.peek() == '=':
-                    self.advance()
-                    tokens.append(Token(TokenType.GTE, ">=", line, col))
-                else:
-                    tokens.append(Token(TokenType.GT, ">", line, col))
-            elif char == '+':
-                self.advance()
-                tokens.append(Token(TokenType.PLUS, "+", line, col))
-            elif char == '-':
-                self.advance()
-                tokens.append(Token(TokenType.MINUS, "-", line, col))
-            elif char == '*':
-                self.advance()
-                tokens.append(Token(TokenType.STAR, "*", line, col))
-            elif char == '/':
-                self.advance()
-                tokens.append(Token(TokenType.SLASH, "/", line, col))
-            elif char == '%':
-                self.advance()
-                tokens.append(Token(TokenType.MODULO, "%", line, col))
-            elif char == '.':
-                self.advance()
-                tokens.append(Token(TokenType.DOT, ".", line, col))
-            elif char == '(':
-                self.advance()
-                self.paren_depth += 1
-                tokens.append(Token(TokenType.LPAREN, "(", line, col))
-            elif char == ')':
-                self.advance()
-                self.paren_depth = max(0, self.paren_depth - 1)
-                tokens.append(Token(TokenType.RPAREN, ")", line, col))
-            elif char == '{':
-                self.advance()
-                self.brace_depth += 1
-                tokens.append(Token(TokenType.LBRACE, "{", line, col))
-            elif char == '}':
-                self.advance()
-                self.brace_depth = max(0, self.brace_depth - 1)
-                tokens.append(Token(TokenType.RBRACE, "}", line, col))
-            elif char == ',':
-                self.advance()
-                tokens.append(Token(TokenType.COMMA, ",", line, col))
-            elif char == ';':
-                self.advance()
-                tokens.append(Token(TokenType.SEMICOLON, ";", line, col))
-            else:
-                raise LexicalError(f"Unexpected character: {repr(char)}", line, col)
+                tokens.append(Token(simple1[ch], ch, line, col)); continue
+            if ch == "(":
+                self.advance(); self.paren_depth += 1
+                tokens.append(Token(TokenType.LPAREN, "(", line, col)); continue
+            if ch == ")":
+                self.advance(); self.paren_depth = max(0, self.paren_depth - 1)
+                tokens.append(Token(TokenType.RPAREN, ")", line, col)); continue
+            raise NitoSyntaxError(f"unexpected character {ch!r}.", line, col)
 
         while len(self.indent_stack) > 1:
-            self.indent_stack.pop()
-            tokens.append(Token(TokenType.DEDENT, "", self.line, self.column))
-            
-        if tokens and tokens[-1].type not in (TokenType.NEWLINE, TokenType.DEDENT, TokenType.SEMICOLON):
+            self.indent_stack.pop(); tokens.append(Token(TokenType.DEDENT, "", self.line, self.column))
+        if tokens and tokens[-1].type not in (TokenType.NEWLINE, TokenType.DEDENT):
             tokens.append(Token(TokenType.NEWLINE, "\n", self.line, self.column))
-
         tokens.append(Token(TokenType.EOF, "", self.line, self.column))
         return tokens
 
 # ==============================================================================
-# PARSER
+# PARSER (recursive descent; clear errors, no auto-healing)
 # ==============================================================================
 
 class Parser:
-    def __init__(self, tokens: List[Token]):
-        self.tokens = tokens
-        self.current = 0
-
-    def peek(self) -> Token:
-        return self.tokens[self.current]
-
-    def previous(self) -> Token:
-        return self.tokens[self.current - 1]
-
-    def is_at_end(self) -> bool:
-        return self.peek().type == TokenType.EOF
-
-    def check(self, token_type: TokenType) -> bool:
-        if self.is_at_end():
-            return False
-        return self.peek().type == token_type
-
+    def __init__(self, tokens: List[Token]): self.tokens, self.current = tokens, 0
+    def peek(self) -> Token: return self.tokens[self.current]
+    def previous(self) -> Token: return self.tokens[self.current - 1]
+    def is_at_end(self) -> bool: return self.peek().type == TokenType.EOF
+    def check(self, t) -> bool: return not self.is_at_end() and self.peek().type == t
     def advance(self) -> Token:
-        if not self.is_at_end():
-            self.current += 1
+        if not self.is_at_end(): self.current += 1
         return self.previous()
-
-    def match(self, *types: TokenType) -> bool:
+    def match(self, *types) -> bool:
         for t in types:
-            if self.check(t):
-                self.advance()
-                return True
+            if self.check(t): self.advance(); return True
         return False
-
-    def consume(self, token_type: TokenType, err_msg: str) -> Token:
-        if self.check(token_type):
-            return self.advance()
-        
-        # Structural autohealing
-        if token_type == TokenType.RPAREN:
-            if self.check(TokenType.NEWLINE) or self.check(TokenType.SEMICOLON) or self.check(TokenType.LBRACE) or self.check(TokenType.ENTONCES) or self.check(TokenType.HAZ):
-                print(f"[Parser Warning] Auto-inserted missing ')' on line {self.peek().line}")
-                return Token(TokenType.RPAREN, ")", self.peek().line, self.peek().column)
-        if token_type == TokenType.RBRACE:
-            if self.is_at_end() or self.check(TokenType.DEDENT):
-                print(f"[Parser Warning] Auto-inserted missing '}}' on line {self.peek().line}")
-                return Token(TokenType.RBRACE, "}", self.peek().line, self.peek().column)
-        
-        raise ParseError(err_msg, self.peek())
-
-    def consume_statement_terminator(self):
-        if self.match(TokenType.SEMICOLON, TokenType.NEWLINE):
-            while self.match(TokenType.SEMICOLON, TokenType.NEWLINE):
-                pass
-            return
-        if self.check(TokenType.RBRACE) or self.check(TokenType.DEDENT) or self.is_at_end():
-            return
-        print(f"[Parser Warning] Auto-inserted missing statement terminator on line {self.peek().line}")
+    def consume(self, t, msg) -> Token:
+        if self.check(t): return self.advance()
+        tok = self.peek()
+        raise NitoSyntaxError(f"{msg} (found {tok.value!r}).", tok.line, tok.column)
 
     def parse(self) -> ProgramNode:
         statements = []
         while not self.is_at_end():
-            if self.match(TokenType.NEWLINE, TokenType.SEMICOLON):
-                continue
+            if self.match(TokenType.NEWLINE): continue
             statements.append(self.statement())
         return ProgramNode(statements)
 
+    def end_statement(self):
+        if not (self.match(TokenType.NEWLINE) or self.check(TokenType.DEDENT) or self.is_at_end()):
+            tok = self.peek()
+            raise NitoSyntaxError(f"expected end of line (found {tok.value!r}).", tok.line, tok.column)
+
     def statement(self) -> ASTNode:
-        if self.match(TokenType.NITO_VAR):
-            return self.var_declaration(is_const=False)
-        if self.match(TokenType.NITO_CONST):
-            return self.var_declaration(is_const=True)
-        if self.match(TokenType.NITO_FUN):
-            return self.fun_declaration()
-        if self.match(TokenType.NITO_SI):
-            return self.if_statement()
-        if self.match(TokenType.NITO_MIENTRAS):
-            return self.while_statement()
-        if self.match(TokenType.NITO_RETORNA):
-            return self.return_statement()
-        if self.match(TokenType.NITO_IMPRIMIR):
-            return self.print_statement()
-        if self.match(TokenType.NITO_IMPORTAR):
-            return self.import_statement()
-        if self.check(TokenType.LBRACE):
-            return self.block_statement()
-        return self.expression_statement()
-
-    def var_declaration(self, is_const: bool) -> ASTNode:
-        name_tok = self.consume(TokenType.IDENTIFIER, "Expect variable name.")
-        if name_tok.value == "Nito":
-            raise ParseError("Cannot declare variable with reserved name 'Nito'.", name_tok)
-        self.consume(TokenType.ASSIGN, "Expect '=' or 'es' after variable name.")
+        if self.match(TokenType.LET): return self.let_statement()
+        if self.match(TokenType.BLOCK): return self.block_declaration()
+        if self.match(TokenType.IF): return self.if_statement()
+        if self.match(TokenType.WHILE): return self.while_statement()
+        if self.match(TokenType.GIVE): return self.give_statement()
+        if self.match(TokenType.SHOW): return self.show_statement()
+        if self.match(TokenType.FAIL): return self.fail_statement()
+        if self.match(TokenType.USE): return self.use_statement()
         expr = self.expression()
-        self.consume_statement_terminator()
-        return VarDeclNode(name_tok.value, expr, is_const)
-
-    def fun_declaration(self) -> ASTNode:
-        name_tok = self.consume(TokenType.IDENTIFIER, "Expect function name.")
-        if name_tok.value == "Nito":
-            raise ParseError("Cannot declare function with reserved name 'Nito'.", name_tok)
-            
-        has_paren = self.match(TokenType.LPAREN)
-        params = []
-        if not self.check(TokenType.RPAREN) and not self.check(TokenType.LBRACE) and not self.check(TokenType.NEWLINE) and not self.check(TokenType.INDENT):
-            while True:
-                param = self.consume(TokenType.IDENTIFIER, "Expect parameter name.")
-                params.append(param.value)
-                if not self.match(TokenType.COMMA):
-                    break
-        if has_paren:
-            self.consume(TokenType.RPAREN, "Expect ')' after parameter list.")
-            
-        self.match(TokenType.ENTONCES, TokenType.HAZ)
-        body = self.block_statement()
-        return FunDeclNode(name_tok.value, params, body)
-
-    def if_statement(self) -> ASTNode:
-        has_paren = self.match(TokenType.LPAREN)
-        cond = self.expression()
-        if has_paren:
-            self.consume(TokenType.RPAREN, "Expect ')' after 'nito_si' condition.")
-            
-        self.match(TokenType.ENTONCES, TokenType.HAZ)
-        then_branch = self.block_statement()
-        
-        elif_branches = []
-        else_branch = None
-        
-        while self.match(TokenType.NITO_SINO_SI):
-            has_elif_paren = self.match(TokenType.LPAREN)
-            elif_cond = self.expression()
-            if has_elif_paren:
-                self.consume(TokenType.RPAREN, "Expect ')' after condition.")
-            self.match(TokenType.ENTONCES, TokenType.HAZ)
-            elif_block = self.block_statement()
-            elif_branches.append((elif_cond, elif_block))
-            
-        if self.match(TokenType.NITO_SINO):
-            self.match(TokenType.ENTONCES, TokenType.HAZ)
-            else_branch = self.block_statement()
-            
-        return IfNode(cond, then_branch, elif_branches, else_branch)
-
-    def while_statement(self) -> ASTNode:
-        has_paren = self.match(TokenType.LPAREN)
-        cond = self.expression()
-        if has_paren:
-            self.consume(TokenType.RPAREN, "Expect ')' after condition.")
-        self.match(TokenType.ENTONCES, TokenType.HAZ)
-        body = self.block_statement()
-        return WhileNode(cond, body)
-
-    def return_statement(self) -> ASTNode:
-        expr = None
-        if not self.check(TokenType.SEMICOLON) and not self.check(TokenType.NEWLINE) and not self.check(TokenType.DEDENT) and not self.check(TokenType.RBRACE) and not self.is_at_end():
-            expr = self.expression()
-        self.consume_statement_terminator()
-        return ReturnNode(expr)
-
-    def print_statement(self) -> ASTNode:
-        has_paren = self.match(TokenType.LPAREN)
-        expr = self.expression()
-        if has_paren:
-            self.consume(TokenType.RPAREN, "Expect ')' after print expression.")
-        self.consume_statement_terminator()
-        return PrintNode(expr)
-
-    def import_statement(self) -> ASTNode:
-        module_parts = []
-        module_parts.append(self.consume(TokenType.IDENTIFIER, "Expect module or function name to import.").value)
-        while self.match(TokenType.DOT):
-            module_parts.append(self.consume(TokenType.IDENTIFIER, "Expect identifier after '.'.").value)
-        self.consume_statement_terminator()
-        
-        if len(module_parts) > 1:
-            module = ".".join(module_parts[:-1])
-            name = module_parts[-1]
-        else:
-            module = ""
-            name = module_parts[0]
-        return ImportNode(module, name)
-
-    def block_statement(self) -> BlockNode:
-        while self.match(TokenType.NEWLINE):
-            pass
-            
-        if self.match(TokenType.LBRACE):
-            statements = []
-            while not self.check(TokenType.RBRACE) and not self.is_at_end():
-                if self.match(TokenType.NEWLINE, TokenType.SEMICOLON):
-                    continue
-                statements.append(self.statement())
-            self.consume(TokenType.RBRACE, "Expect '}' to close block.")
-            return BlockNode(statements)
-            
-        elif self.match(TokenType.INDENT):
-            statements = []
-            while not self.check(TokenType.DEDENT) and not self.is_at_end():
-                if self.match(TokenType.NEWLINE, TokenType.SEMICOLON):
-                    continue
-                statements.append(self.statement())
-            self.consume(TokenType.DEDENT, "Expect DEDENT to close block.")
-            return BlockNode(statements)
-            
-        else:
-            stmt = self.statement()
-            return BlockNode([stmt])
-
-    def expression_statement(self) -> ASTNode:
-        expr = self.expression()
-        self.consume_statement_terminator()
+        self.end_statement()
         return ExprStmtNode(expr)
 
-    def expression(self) -> ASTNode:
-        return self.assignment()
+    def let_statement(self) -> ASTNode:
+        name = self.consume(TokenType.IDENTIFIER, "expected a name after 'let'").value
+        self.consume(TokenType.ASSIGN, "expected '=' after the name in a 'let'")
+        value = self.expression()
+        self.end_statement()
+        return LetNode(name, value)
+
+    def block_declaration(self) -> ASTNode:
+        name = self.consume(TokenType.IDENTIFIER, "expected a block name after 'block'").value
+        self.consume(TokenType.LPAREN, "expected '(' after the block name")
+        params = []
+        if not self.check(TokenType.RPAREN):
+            while True:
+                params.append(self.consume(TokenType.IDENTIFIER, "expected a parameter name").value)
+                if not self.match(TokenType.COMMA): break
+        self.consume(TokenType.RPAREN, "expected ')' to close the parameter list")
+        body = self.suite("block")
+        return BlockDeclNode(name, params, body)
+
+    def if_statement(self) -> ASTNode:
+        cond = self.expression()
+        then_b = self.suite("if")
+        elifs, else_b = [], None
+        while self.match(TokenType.ELIF):
+            ec = self.expression()
+            elifs.append((ec, self.suite("elif")))
+        if self.match(TokenType.ELSE):
+            else_b = self.suite("else")
+        return IfNode(cond, then_b, elifs, else_b)
+
+    def while_statement(self) -> ASTNode:
+        cond = self.expression()
+        return WhileNode(cond, self.suite("while"))
+
+    def give_statement(self) -> ASTNode:
+        value = None
+        if not (self.check(TokenType.NEWLINE) or self.check(TokenType.DEDENT) or self.is_at_end()):
+            value = self.expression()
+        self.end_statement()
+        return GiveNode(value)
+
+    def show_statement(self) -> ASTNode:
+        expr = self.expression(); self.end_statement(); return ShowNode(expr)
+
+    def fail_statement(self) -> ASTNode:
+        expr = self.expression(); self.end_statement(); return FailNode(expr)
+
+    def use_statement(self) -> ASTNode:
+        parts = [self.consume(TokenType.IDENTIFIER, "expected a module or function name after 'use'").value]
+        while self.match(TokenType.DOT):
+            parts.append(self.consume(TokenType.IDENTIFIER, "expected a name after '.'").value)
+        self.end_statement()
+        if len(parts) > 1: return UseNode(".".join(parts[:-1]), parts[-1])
+        return UseNode("", parts[0])
+
+    def suite(self, keyword: str) -> SuiteNode:
+        self.consume(TokenType.COLON, f"expected ':' after the '{keyword}' header")
+        if self.match(TokenType.NEWLINE):
+            self.consume(TokenType.INDENT, f"expected an indented body for '{keyword}'")
+            statements = []
+            while not self.check(TokenType.DEDENT) and not self.is_at_end():
+                if self.match(TokenType.NEWLINE): continue
+                statements.append(self.statement())
+            self.consume(TokenType.DEDENT, f"expected the '{keyword}' body to end")
+            return SuiteNode(statements)
+        return SuiteNode([self.statement()])  # inline single-statement form
+
+    # --- expressions ---
+    def expression(self) -> ASTNode: return self.assignment()
 
     def assignment(self) -> ASTNode:
-        expr = self.logical_or()
+        expr = self.pipe()
         if self.match(TokenType.ASSIGN):
-            equals = self.previous()
+            tok = self.previous()
             value = self.assignment()
-            if isinstance(expr, VariableNode):
-                return AssignNode(expr.name, value)
-            raise ParseError("Invalid assignment target.", equals)
+            if isinstance(expr, VariableNode): return AssignNode(expr.name, value)
+            raise NitoSyntaxError("you can only assign to a name.", tok.line, tok.column)
+        return expr
+
+    def pipe(self) -> ASTNode:
+        expr = self.logical_or()
+        while self.match(TokenType.PIPE):
+            right = self.logical_or()
+            if isinstance(right, CallNode):
+                expr = CallNode(right.callee, [expr] + right.arguments)
+            else:
+                expr = CallNode(right, [expr])
         return expr
 
     def logical_or(self) -> ASTNode:
         expr = self.logical_and()
-        while self.match(TokenType.NITO_OR):
-            op = self.previous().value
-            right = self.logical_and()
-            expr = BinaryOpNode(expr, op, right)
+        while self.match(TokenType.OR):
+            expr = BinaryOpNode(expr, "or", self.logical_and())
         return expr
 
     def logical_and(self) -> ASTNode:
         expr = self.equality()
-        while self.match(TokenType.NITO_AND):
-            op = self.previous().value
-            right = self.equality()
-            expr = BinaryOpNode(expr, op, right)
+        while self.match(TokenType.AND):
+            expr = BinaryOpNode(expr, "and", self.equality())
         return expr
 
     def equality(self) -> ASTNode:
         expr = self.comparison()
         while self.match(TokenType.EQ, TokenType.NEQ):
-            op = self.previous().value
-            right = self.comparison()
-            expr = BinaryOpNode(expr, op, right)
+            expr = BinaryOpNode(expr, self.previous().value, self.comparison())
         return expr
 
     def comparison(self) -> ASTNode:
         expr = self.addition()
         while self.match(TokenType.LT, TokenType.GT, TokenType.LTE, TokenType.GTE):
-            op = self.previous().value
-            right = self.addition()
-            expr = BinaryOpNode(expr, op, right)
+            expr = BinaryOpNode(expr, self.previous().value, self.addition())
         return expr
 
     def addition(self) -> ASTNode:
         expr = self.multiplication()
         while self.match(TokenType.PLUS, TokenType.MINUS):
-            op = self.previous().value
-            
-            # HEALING: Skip redundant/unexpected duplicate binary operators (only strictly binary ones)
-            while self.check(TokenType.STAR) or self.check(TokenType.SLASH) or self.check(TokenType.MODULO):
-                bad_tok = self.advance()
-                print(f"[Parser Warning] Skipped unexpected binary operator '{bad_tok.value}' on line {bad_tok.line}")
-                
-            right = self.multiplication()
-            expr = BinaryOpNode(expr, op, right)
+            expr = BinaryOpNode(expr, self.previous().value, self.multiplication())
         return expr
 
     def multiplication(self) -> ASTNode:
         expr = self.unary()
         while self.match(TokenType.STAR, TokenType.SLASH, TokenType.MODULO):
-            op = self.previous().value
-            
-            # HEALING: Skip redundant/unexpected duplicate binary operators (only strictly binary ones)
-            while self.check(TokenType.STAR) or self.check(TokenType.SLASH) or self.check(TokenType.MODULO):
-                bad_tok = self.advance()
-                print(f"[Parser Warning] Skipped unexpected binary operator '{bad_tok.value}' on line {bad_tok.line}")
-                
-            right = self.unary()
-            expr = BinaryOpNode(expr, op, right)
+            expr = BinaryOpNode(expr, self.previous().value, self.unary())
         return expr
 
-    def _match_unary_not(self) -> bool:
-        if self.check(TokenType.NITO_NOT):
-            self.advance()
-            return True
-        if self.check(TokenType.IDENTIFIER) and self.peek().value == "no":
-            self.advance()
-            return True
-        return False
-
     def unary(self) -> ASTNode:
-        if self._match_unary_not() or self.match(TokenType.MINUS):
-            op = self.previous().value
-            operand = self.unary()
-            return UnaryOpNode(op, operand)
+        if self.match(TokenType.NOT, TokenType.MINUS):
+            return UnaryOpNode(self.previous().value, self.unary())
         return self.call()
 
     def call(self) -> ASTNode:
@@ -889,996 +468,389 @@ class Parser:
                 if not self.check(TokenType.RPAREN):
                     while True:
                         args.append(self.expression())
-                        if not self.match(TokenType.COMMA):
-                            break
-                self.consume(TokenType.RPAREN, "Expect ')' after arguments.")
+                        if not self.match(TokenType.COMMA): break
+                self.consume(TokenType.RPAREN, "expected ')' after arguments")
                 expr = CallNode(expr, args)
             elif self.match(TokenType.DOT):
-                name = self.consume(TokenType.IDENTIFIER, "Expect property name after '.'.").value
+                name = self.consume(TokenType.IDENTIFIER, "expected a property name after '.'").value
                 expr = GetNode(expr, name)
             else:
                 break
         return expr
 
     def primary(self) -> ASTNode:
-        # HEALING: If expression is abruptly cut off by a terminator or EOF, inject placeholder '0'
-        if self.check(TokenType.SEMICOLON) or self.check(TokenType.NEWLINE) or self.check(TokenType.EOF) or self.check(TokenType.RBRACE) or self.check(TokenType.DEDENT):
-            print(f"[Parser Warning] Injected default value '0' for missing expression operand on line {self.peek().line}")
-            return LiteralNode(0)
-
-        if self.match(TokenType.LIT_TRUE):
-            return LiteralNode(True)
-        if self.match(TokenType.LIT_FALSE):
-            return LiteralNode(False)
-        if self.match(TokenType.LIT_SUPREME):
-            return LiteralNode(NitoSupreme)
+        if self.match(TokenType.TRUE): return LiteralNode(True)
+        if self.match(TokenType.FALSE): return LiteralNode(False)
+        if self.match(TokenType.NITO): return LiteralNode(Nito)
         if self.match(TokenType.NUMBER):
-            val = self.previous().value
-            return LiteralNode(float(val) if '.' in val else int(val))
-        if self.match(TokenType.STRING):
-            return LiteralNode(self.previous().value)
-        if self.match(TokenType.IDENTIFIER):
-            return VariableNode(self.previous().value)
+            v = self.previous().value
+            return LiteralNode(float(v) if "." in v else int(v))
+        if self.match(TokenType.STRING): return LiteralNode(self.previous().value)
+        if self.match(TokenType.IDENTIFIER): return VariableNode(self.previous().value)
         if self.match(TokenType.LPAREN):
             expr = self.expression()
-            self.consume(TokenType.RPAREN, "Expect ')' after expression.")
+            self.consume(TokenType.RPAREN, "expected ')' after the expression")
             return expr
-            
-        raise ParseError("Expect expression.", self.peek())
+        tok = self.peek()
+        raise NitoSyntaxError(f"expected a value or expression (found {tok.value!r}).", tok.line, tok.column)
 
 # ==============================================================================
-# EVALUATOR (SEMANTICS) & SUPREME VIOLATION
+# SEMANTICS — Nito-aware operators
 # ==============================================================================
-
-class SupremeViolationError(RuntimeError):
-    pass
-
-class NitoSupremeType:
-    def __repr__(self) -> str: return "Nito"
-    def __str__(self) -> str: return "Nito"
-    def __bool__(self) -> bool: return True
-
-    def __eq__(self, other) -> bool: return isinstance(other, NitoSupremeType)
-    def __ne__(self, other) -> bool: return not self.__eq__(other)
-    
-    def __gt__(self, other) -> bool:
-        if isinstance(other, NitoSupremeType): return False
-        return True
-
-    def __ge__(self, other) -> bool: return True
-    def __lt__(self, other) -> bool: return False
-    
-    def __le__(self, other) -> bool:
-        if isinstance(other, NitoSupremeType): return True
-        return False
-
-    def __add__(self, other) -> 'NitoSupremeType':
-        if isinstance(other, (int, float, str)):
-            return self
-        raise SupremeViolationError("Heresy: Invalid addition operation on Nito.")
-
-    def __radd__(self, other) -> 'NitoSupremeType':
-        return self.__add__(other)
-
-    def __sub__(self, other) -> 'NitoSupremeType':
-        if isinstance(other, NitoSupremeType):
-            raise SupremeViolationError("Heresy: Cannot subtract Nito from Nito.")
-        if isinstance(other, (int, float)):
-            return self
-        raise SupremeViolationError("Heresy: Invalid subtraction operation on Nito.")
-
-    def __rsub__(self, other) -> Any:
-        if isinstance(other, (int, float)):
-            raise SupremeViolationError("Heresy: Cannot subtract Nito from a finite value.")
-        raise SupremeViolationError("Heresy: Invalid subtraction operation on Nito.")
-
-    def __mul__(self, other) -> 'NitoSupremeType':
-        if isinstance(other, (int, float)):
-            if other <= 0:
-                raise SupremeViolationError("Heresy: Cannot scale Nito by a non-positive factor.")
-            return self
-        raise SupremeViolationError("Heresy: Invalid scaling operation on Nito.")
-
-    def __rmul__(self, other) -> 'NitoSupremeType':
-        return self.__mul__(other)
-
-    def __truediv__(self, other) -> 'NitoSupremeType':
-        if isinstance(other, (int, float)):
-            if other <= 0:
-                raise SupremeViolationError("Heresy: Cannot divide Nito by a non-positive factor.")
-            return self
-        raise SupremeViolationError("Heresy: Invalid division on Nito.")
-
-    def __rtruediv__(self, other) -> float:
-        if isinstance(other, (int, float)): return 0.0
-        raise SupremeViolationError("Heresy: Cannot divide a non-numeric type by Nito.")
-
-    def __floordiv__(self, other) -> 'NitoSupremeType':
-        return self.__truediv__(other)
-
-    def __rfloordiv__(self, other) -> int:
-        if isinstance(other, (int, float)): return 0
-        raise SupremeViolationError("Heresy: Cannot divide a non-numeric type by Nito.")
-
-    def __mod__(self, other) -> Any:
-        raise SupremeViolationError("Heresy: Remainder of Nito relative to another value is undefinable.")
-
-    def __rmod__(self, other) -> Any:
-        if isinstance(other, NitoSupremeType):
-            raise SupremeViolationError("Heresy: Remainder of Nito relative to itself is undefinable.")
-        return other
-
-NitoSupreme = NitoSupremeType()
-
-class QuantumNitoType:
-    def __init__(self, value: Any, is_null: bool = False):
-        self.value = value
-        self.is_null = is_null
-
-    def get_property(self, name: str) -> 'QuantumNitoType':
-        if self.is_null or self.value is None:
-            return QuantumNitoType(None, is_null=True)
-        if isinstance(self.value, dict):
-            if name in self.value:
-                return QuantumNitoType(self.value[name])
-            return QuantumNitoType(None, is_null=True)
-        try:
-            val = getattr(self.value, name)
-            return QuantumNitoType(val)
-        except AttributeError:
-            return QuantumNitoType(None, is_null=True)
-
-    def __getattr__(self, name: str) -> 'QuantumNitoType':
-        return self.get_property(name)
-
-    def unwrap(self) -> Any:
-        if self.is_null:
-            return None
-        if isinstance(self.value, QuantumNitoType):
-            return self.value.unwrap()
-        return self.value
-
-    def __bool__(self) -> bool:
-        val = self.unwrap()
-        return bool(val)
-
-    def __repr__(self) -> str:
-        if self.is_null:
-            return "QuantumNito(Null)"
-        return f"QuantumNito({self.unwrap()})"
-
-def is_nito(value: Any) -> bool:
-    return isinstance(value, NitoSupremeType)
 
 def evaluate_binary_op(left: Any, op: str, right: Any) -> Any:
-    if isinstance(left, QuantumNitoType): left = left.unwrap()
-    if isinstance(right, QuantumNitoType): right = right.unwrap()
-
-    if op == "es igual a": op = "=="
-    elif op in ("es mayor que", "nito_mayor"): op = ">"
-    elif op in ("es menor que", "nito_menor"): op = "<"
-    elif op == "es mayor o igual a": op = ">="
-    elif op == "es menor o igual a": op = "<="
-    elif op == "es": op = "="
-    
-    if is_nito(left) or is_nito(right):
-        if op == "==": return is_nito(left) and is_nito(right)
-        elif op == "!=": return not (is_nito(left) and is_nito(right))
-        elif op == ">":
-            if is_nito(left): return not is_nito(right)
-            return False
-        elif op == ">=":
-            if is_nito(left): return True
-            return False
-        elif op == "<":
-            if is_nito(right): return not is_nito(left)
-            return False
-        elif op == "<=":
-            if is_nito(right): return True
-            return False
-
-        try:
-            if op == "+": return left + right
-            elif op == "-":
-                if is_nito(left): return left - right
-                raise SupremeViolationError("Heresy: Cannot subtract Nito from a finite value.")
-            elif op == "*": return left * right
-            elif op == "/":
-                if is_nito(left): return left / right
-                return right.__rtruediv__(left)
-            elif op == "%":
-                if is_nito(left): raise SupremeViolationError("Heresy: Cannot compute modulo of Nito.")
-                return right.__rmod__(left)
-        except TypeError:
-            raise SupremeViolationError(f"Heresy: Invalid arithmetic binary operation '{op}' involving Nito.")
-
+    if op == "or": return left if bool(left) else right
+    if op == "and": return right if bool(left) else left
     if op == "==": return left == right
     if op == "!=": return left != right
+
+    # Nito propagation: absence flows through arithmetic and ordering.
+    if is_nito(left) or is_nito(right):
+        return Nito
+
     if op == "<": return left < right
     if op == ">": return left > right
     if op == "<=": return left <= right
     if op == ">=": return left >= right
-    if op == "+": return left + right
+    if op == "+":
+        if isinstance(left, str) or isinstance(right, str):
+            return nito_str(left) + nito_str(right)
+        return left + right
     if op == "-": return left - right
     if op == "*": return left * right
     if op == "/":
-        if right == 0: raise ZeroDivisionError("Division by zero.")
+        if right == 0: raise NitoError("you can't divide by zero.")
         return left / right
     if op == "%":
-        if right == 0: raise ZeroDivisionError("Modulo by zero.")
+        if right == 0: raise NitoError("you can't take a remainder by zero.")
         return left % right
-    if op == "nito_o": return left or right
-    if op == "nito_y": return left and right
-
-    raise RuntimeError(f"Unknown operator: {op}")
+    raise NitoError(f"unknown operator '{op}'.")
 
 # ==============================================================================
-# SCOPES & ENVIRONMENT
+# SCOPES & FUNCTIONS
 # ==============================================================================
 
 class Environment:
-    def __init__(self, parent: Optional['Environment'] = None):
+    def __init__(self, parent: Optional["Environment"] = None):
         self.values: Dict[str, Any] = {}
-        self.constants: Set[str] = set()
         self.parent = parent
 
-    def _get_all_symbols(self) -> Dict[str, 'Environment']:
-        symbols = {}
-        curr = self
-        while curr is not None:
-            for k in curr.values.keys():
-                if k not in symbols:
-                    symbols[k] = curr
-            curr = curr.parent
-        return symbols
-
-    def _fuzzy_resolve(self, name: str) -> Optional[Tuple[str, 'Environment']]:
-        symbols_map = self._get_all_symbols()
-        if not symbols_map:
-            return None
-        
-        best_match = None
-        min_dist = 999
-        threshold = 2
-        
-        for decl_name, env in symbols_map.items():
-            dist = levenshtein_distance(name, decl_name)
-            if dist <= threshold and dist < min_dist:
-                min_dist = dist
-                best_match = (decl_name, env)
-                
-        if best_match is not None:
-            print(f"[Runtime Warning] Fuzzy resolved undefined variable '{name}' to '{best_match[0]}' (Levenshtein distance {min_dist})")
-            return best_match
-        return None
-
-    def define(self, name: str, value: Any, is_const: bool = False):
-        if name in self.values:
-            raise RuntimeError(f"Variable '{name}' already defined.")
+    def define(self, name: str, value: Any):
         self.values[name] = value
-        if is_const:
-            self.constants.add(name)
 
     def assign(self, name: str, value: Any):
-        if name == "Nito":
-            raise SupremeViolationError("Heresy: Cannot assign to the Supreme literal 'Nito'.")
-        if name in self.values:
-            if name in self.constants:
-                raise RuntimeError(f"Cannot reassign to constant '{name}'.")
-            self.values[name] = value
-            return
-        if self.parent:
-            self.parent.assign(name, value)
-            return
-            
-        # Try Fuzzy Healing
-        resolved = self._fuzzy_resolve(name)
-        if resolved is not None:
-            best_name, best_env = resolved
-            if best_name in best_env.constants:
-                raise RuntimeError(f"Cannot reassign to constant '{best_name}'.")
-            best_env.values[best_name] = value
-            return
-            
-        raise NameError(f"Undefined variable '{name}'.")
+        env = self
+        while env is not None:
+            if name in env.values:
+                env.values[name] = value
+                return
+            env = env.parent
+        raise NitoError(f"unknown name '{name}' (declare it first with 'let').")
 
     def get(self, name: str) -> Any:
-        if name == "Nito": return NitoSupreme
-        if name in self.values: return self.values[name]
-        if self.parent: return self.parent.get(name)
-        
-        # Try Fuzzy Healing
-        resolved = self._fuzzy_resolve(name)
-        if resolved is not None:
-            best_name, best_env = resolved
-            return best_env.values[best_name]
-            
-        raise NameError(f"Undefined variable '{name}'.")
-
-class ReturnException(Exception):
-    def __init__(self, value: Any): self.value = value
+        env = self
+        while env is not None:
+            if name in env.values:
+                return env.values[name]
+            env = env.parent
+        raise NitoError(f"unknown name '{name}' (declare it first with 'let').")
 
 class NitoNativeFunction:
-    def __init__(self, name: str, func: callable):
-        self.name = name
-        self.func = func
-    def call(self, evaluator: 'Evaluator', args: List[Any]) -> Any:
-        return self.func(*args)
-    def __repr__(self) -> str:
-        return f"<native function {self.name}>"
+    def __init__(self, name, func): self.name, self.func = name, func
+    def call(self, args): return self.func(*args)
+    def __repr__(self): return f"<native {self.name}>"
 
-class NitoCompiledFunction:
-    def __init__(self, name: str, params: List[str], bytecode: 'Bytecode', closure: Environment):
-        self.name = name
-        self.params = params
-        self.bytecode = bytecode
-        self.closure = closure
-        
-    def call(self, executor: 'NitoSupremeExecutor', args: List[Any]) -> Any:
-        # Create execution frame
-        env = Environment(self.closure)
+class NitoBlock:
+    """A user-defined block (function): deterministic input -> output."""
+    def __init__(self, name, params, bytecode, closure):
+        self.name, self.params, self.bytecode, self.closure = name, params, bytecode, closure
+    def call(self, executor, args):
         if len(args) != len(self.params):
-            raise RuntimeError(f"Expected {len(self.params)} args, got {len(args)}.")
-        for param, val in zip(self.params, args):
-            env.define(param, val)
-            
-        # Nito walks the function frame
-        nito = NitoSupremeExecutor(self.bytecode, env)
-        nito.globals = executor.globals
-        while nito.camina():
-            pass
-            
-        if nito.stack:
-            return nito.stack.pop()
-        return None
-        
-    def __repr__(self) -> str:
-        return f"<function {self.name}>"
-
-class NitoFunction:
-    def __init__(self, decl: FunDeclNode, closure: Environment):
-        self.decl = decl
-        self.closure = closure
-
-    def call(self, evaluator: 'Evaluator', args: List[Any]) -> Any:
+            raise NitoError(f"block '{self.name}' expects {len(self.params)} argument(s), got {len(args)}.")
         env = Environment(self.closure)
-        if len(args) != len(self.decl.params):
-            raise RuntimeError(f"Expected {len(self.decl.params)} args, got {len(args)}.")
-        for param, val in zip(self.decl.params, args):
-            env.define(param, val)
-        try:
-            evaluator.execute_block(self.decl.body, env)
-        except ReturnException as r:
-            return r.value
-        return None
+        for p, v in zip(self.params, args):
+            env.define(p, v)
+        sub = NitoSupremeExecutor(self.bytecode, env)
+        while sub.step():
+            pass
+        return sub.stack.pop() if sub.stack else Nito
+    def __repr__(self): return f"<block {self.name}>"
 
 # ==============================================================================
-# BYTECODE & VM SPECIFICATION
+# BYTECODE
 # ==============================================================================
 
 class Opcode(Enum):
-    LOAD_CONST = auto()
-    LOAD_NAME = auto()
-    STORE_NAME = auto()
-    DECLARE_NAME = auto()
-    ADD = auto()
-    SUB = auto()
-    MUL = auto()
-    DIV = auto()
-    MOD = auto()
-    COMPARE = auto()
-    JUMP_IF_FALSE = auto()
-    JUMP = auto()
-    CALL = auto()
-    RETURN_VALUE = auto()
-    PRINT = auto()
-    IMPORT_FFI = auto()
-    POP_TOP = auto()
-    GET_PROPERTY = auto()
+    LOAD_CONST = auto(); LOAD_NAME = auto(); STORE_NAME = auto(); DECLARE_NAME = auto()
+    ADD = auto(); SUB = auto(); MUL = auto(); DIV = auto(); MOD = auto(); COMPARE = auto()
+    NEGATE = auto(); NOT = auto()
+    JUMP_IF_FALSE = auto(); JUMP = auto(); CALL = auto(); RETURN_VALUE = auto()
+    SHOW = auto(); FAIL = auto(); IMPORT_FFI = auto(); POP_TOP = auto(); GET_PROPERTY = auto()
 
 class Instruction:
-    def __init__(self, opcode: Opcode, arg: Any = None):
-        self.opcode = opcode
-        self.arg = arg
-    def __repr__(self) -> str:
-        return f"Instruction({self.opcode.name}, {self.arg})"
+    def __init__(self, opcode, arg=None): self.opcode, self.arg = opcode, arg
+    def __repr__(self): return f"Instruction({self.opcode.name}, {self.arg})"
 
 class Bytecode:
     def __init__(self):
         self.instructions: List[Instruction] = []
         self.constants: List[Any] = []
         self.names: List[str] = []
-
-    def add_const(self, val: Any) -> int:
-        for idx, c in enumerate(self.constants):
-            if c is val: return idx
-            if type(c) is type(val) and c == val: return idx
-        self.constants.append(val)
-        return len(self.constants) - 1
-
-    def add_name(self, name: str) -> int:
-        if name in self.names:
-            return self.names.index(name)
-        self.names.append(name)
-        return len(self.names) - 1
-
-    def emit(self, opcode: Opcode, arg: Any = None) -> int:
-        self.instructions.append(Instruction(opcode, arg))
-        return len(self.instructions) - 1
+    def add_const(self, val) -> int:
+        for i, c in enumerate(self.constants):
+            if c is val: return i
+            if type(c) is type(val) and not callable(c) and c == val: return i
+        self.constants.append(val); return len(self.constants) - 1
+    def add_name(self, name) -> int:
+        if name in self.names: return self.names.index(name)
+        self.names.append(name); return len(self.names) - 1
+    def emit(self, opcode, arg=None) -> int:
+        self.instructions.append(Instruction(opcode, arg)); return len(self.instructions) - 1
 
 # ==============================================================================
 # COMPILER
 # ==============================================================================
 
 class Compiler:
-    def __init__(self):
-        self.code = Bytecode()
+    def __init__(self): self.code = Bytecode()
 
     def compile(self, node: ASTNode):
-        if isinstance(node, ProgramNode):
-            for stmt in node.statements:
-                self.compile(stmt)
-        elif isinstance(node, VarDeclNode):
-            self.compile(node.initializer)
-            name_idx = self.code.add_name(node.name)
-            self.code.emit(Opcode.DECLARE_NAME, (name_idx, node.is_const))
-        elif isinstance(node, LiteralNode):
-            const_idx = self.code.add_const(node.value)
-            self.code.emit(Opcode.LOAD_CONST, const_idx)
-        elif isinstance(node, VariableNode):
-            name_idx = self.code.add_name(node.name)
-            self.code.emit(Opcode.LOAD_NAME, name_idx)
-        elif isinstance(node, AssignNode):
-            self.compile(node.value)
-            name_idx = self.code.add_name(node.name)
-            self.code.emit(Opcode.STORE_NAME, name_idx)
-        elif isinstance(node, BinaryOpNode):
-            self.compile(node.left)
-            self.compile(node.right)
-            if node.op == "+": self.code.emit(Opcode.ADD)
-            elif node.op == "-": self.code.emit(Opcode.SUB)
-            elif node.op == "*": self.code.emit(Opcode.MUL)
-            elif node.op == "/": self.code.emit(Opcode.DIV)
-            elif node.op == "%": self.code.emit(Opcode.MOD)
-            elif node.op in ("==", "!=", "<", ">", "<=", ">=", "nito_o", "nito_y"):
-                self.code.emit(Opcode.COMPARE, node.op)
-        elif isinstance(node, GetNode):
-            self.compile(node.obj)
-            name_idx = self.code.add_name(node.name)
-            self.code.emit(Opcode.GET_PROPERTY, name_idx)
-        elif isinstance(node, UnaryOpNode):
-            if node.op == "-":
-                # Emulate negative as 0 - val
-                self.code.emit(Opcode.LOAD_CONST, self.code.add_const(0))
-                self.compile(node.operand)
-                self.code.emit(Opcode.SUB)
-            elif node.op in ("nito_no", "no"):
-                self.compile(node.operand)
-                self.code.emit(Opcode.COMPARE, "nito_no")
-        elif isinstance(node, PrintNode):
-            self.compile(node.expression)
-            self.code.emit(Opcode.PRINT)
-        elif isinstance(node, ImportNode):
-            name_idx = self.code.add_name(node.name)
-            module_idx = self.code.add_const(node.module)
-            self.code.emit(Opcode.IMPORT_FFI, (name_idx, module_idx))
-        elif isinstance(node, BlockNode):
-            for stmt in node.statements:
-                self.compile(stmt)
-        elif isinstance(node, IfNode):
-            exit_jumps = []
-            
-            # 1. Rama then
-            self.compile(node.condition)
-            jump_next_idx = self.code.emit(Opcode.JUMP_IF_FALSE, 0)
-            
-            self.compile(node.then_branch)
-            if node.elif_branches or node.else_branch:
-                exit_jumps.append(self.code.emit(Opcode.JUMP, 0))
-                
-            # Parchear salto condicional principal
-            self.code.instructions[jump_next_idx].arg = len(self.code.instructions)
-            
-            # 2. Ramas Elif
-            for elif_cond, elif_body in node.elif_branches:
-                self.compile(elif_cond)
-                jump_next_idx = self.code.emit(Opcode.JUMP_IF_FALSE, 0)
-                
-                self.compile(elif_body)
-                exit_jumps.append(self.code.emit(Opcode.JUMP, 0))
-                
-                # Parchear salto del condicional
-                self.code.instructions[jump_next_idx].arg = len(self.code.instructions)
-                
-            # 3. Rama else
-            if node.else_branch:
-                self.compile(node.else_branch)
-                
-            # 4. Parchear saltos de salida
-            end_address = len(self.code.instructions)
-            for idx in exit_jumps:
-                self.code.instructions[idx].arg = end_address
-        elif isinstance(node, ExprStmtNode):
-            self.compile(node.expression)
-            self.code.emit(Opcode.POP_TOP)
-        elif isinstance(node, WhileNode):
-            start_loop = len(self.code.instructions)
-            self.compile(node.condition)
-            jump_false_idx = self.code.emit(Opcode.JUMP_IF_FALSE, 0)
-            
-            self.compile(node.body)
-            self.code.emit(Opcode.JUMP, start_loop)
-            
-            self.code.instructions[jump_false_idx].arg = len(self.code.instructions)
-        elif isinstance(node, FunDeclNode):
-            # Compile body in nested context
-            fn_compiler = Compiler()
-            fn_compiler.compile(node.body)
-            fn_compiler.code.emit(Opcode.LOAD_CONST, fn_compiler.code.add_const(None))
-            fn_compiler.code.emit(Opcode.RETURN_VALUE)
-            
-            fn_obj = NitoCompiledFunction(node.name, node.params, fn_compiler.code, Environment())
-            const_idx = self.code.add_const(fn_obj)
-            name_idx = self.code.add_name(node.name)
-            
-            self.code.emit(Opcode.LOAD_CONST, const_idx)
-            self.code.emit(Opcode.DECLARE_NAME, (name_idx, False))
-        elif isinstance(node, CallNode):
-            self.compile(node.callee)
-            for arg in node.arguments:
-                self.compile(arg)
-            self.code.emit(Opcode.CALL, len(node.arguments))
-        elif isinstance(node, ReturnNode):
-            if node.value:
-                self.compile(node.value)
-            else:
-                self.code.emit(Opcode.LOAD_CONST, self.code.add_const(None))
-            self.code.emit(Opcode.RETURN_VALUE)
-        else:
-            raise RuntimeError(f"Unknown compiler node {type(node).__name__}")
+        method = getattr(self, "_c_" + type(node).__name__, None)
+        if method is None:
+            raise NitoError(f"internal: cannot compile {type(node).__name__}")
+        method(node)
+
+    def _c_ProgramNode(self, n):
+        for s in n.statements: self.compile(s)
+    def _c_SuiteNode(self, n):
+        for s in n.statements: self.compile(s)
+    def _c_LetNode(self, n):
+        self.compile(n.initializer)
+        self.code.emit(Opcode.DECLARE_NAME, self.code.add_name(n.name))
+    def _c_AssignNode(self, n):
+        self.compile(n.value)
+        self.code.emit(Opcode.STORE_NAME, self.code.add_name(n.name))
+    def _c_LiteralNode(self, n):
+        self.code.emit(Opcode.LOAD_CONST, self.code.add_const(n.value))
+    def _c_VariableNode(self, n):
+        self.code.emit(Opcode.LOAD_NAME, self.code.add_name(n.name))
+    def _c_BinaryOpNode(self, n):
+        self.compile(n.left); self.compile(n.right)
+        ops = {"+": Opcode.ADD, "-": Opcode.SUB, "*": Opcode.MUL, "/": Opcode.DIV, "%": Opcode.MOD}
+        if n.op in ops: self.code.emit(ops[n.op])
+        else: self.code.emit(Opcode.COMPARE, n.op)
+    def _c_UnaryOpNode(self, n):
+        self.compile(n.operand)
+        self.code.emit(Opcode.NOT if n.op == "not" else Opcode.NEGATE)
+    def _c_GetNode(self, n):
+        self.compile(n.obj)
+        self.code.emit(Opcode.GET_PROPERTY, self.code.add_name(n.name))
+    def _c_ShowNode(self, n):
+        self.compile(n.expression); self.code.emit(Opcode.SHOW)
+    def _c_FailNode(self, n):
+        self.compile(n.expression); self.code.emit(Opcode.FAIL)
+    def _c_UseNode(self, n):
+        self.code.emit(Opcode.IMPORT_FFI, (self.code.add_name(n.name), self.code.add_const(n.module)))
+    def _c_ExprStmtNode(self, n):
+        self.compile(n.expression); self.code.emit(Opcode.POP_TOP)
+    def _c_IfNode(self, n):
+        exit_jumps = []
+        self.compile(n.condition)
+        jnext = self.code.emit(Opcode.JUMP_IF_FALSE, 0)
+        self.compile(n.then_branch)
+        if n.elif_branches or n.else_branch:
+            exit_jumps.append(self.code.emit(Opcode.JUMP, 0))
+        self.code.instructions[jnext].arg = len(self.code.instructions)
+        for cond, body in n.elif_branches:
+            self.compile(cond)
+            jnext = self.code.emit(Opcode.JUMP_IF_FALSE, 0)
+            self.compile(body)
+            exit_jumps.append(self.code.emit(Opcode.JUMP, 0))
+            self.code.instructions[jnext].arg = len(self.code.instructions)
+        if n.else_branch: self.compile(n.else_branch)
+        end = len(self.code.instructions)
+        for j in exit_jumps: self.code.instructions[j].arg = end
+    def _c_WhileNode(self, n):
+        start = len(self.code.instructions)
+        self.compile(n.condition)
+        jfalse = self.code.emit(Opcode.JUMP_IF_FALSE, 0)
+        self.compile(n.body)
+        self.code.emit(Opcode.JUMP, start)
+        self.code.instructions[jfalse].arg = len(self.code.instructions)
+    def _c_BlockDeclNode(self, n):
+        fn_comp = Compiler()
+        fn_comp.compile(n.body)
+        fn_comp.code.emit(Opcode.LOAD_CONST, fn_comp.code.add_const(Nito))
+        fn_comp.code.emit(Opcode.RETURN_VALUE)
+        block = NitoBlock(n.name, n.params, fn_comp.code, None)
+        self.code.emit(Opcode.LOAD_CONST, self.code.add_const(block))
+        self.code.emit(Opcode.DECLARE_NAME, self.code.add_name(n.name))
+    def _c_CallNode(self, n):
+        self.compile(n.callee)
+        for a in n.arguments: self.compile(a)
+        self.code.emit(Opcode.CALL, len(n.arguments))
+    def _c_GiveNode(self, n):
+        if n.value: self.compile(n.value)
+        else: self.code.emit(Opcode.LOAD_CONST, self.code.add_const(Nito))
+        self.code.emit(Opcode.RETURN_VALUE)
 
 # ==============================================================================
-# NITO SUPREME EXECUTOR (BYTECODE VM)
+# NITOSUPREMEEXECUTOR — the Verifiable State-Transition Executor (deterministic VM)
 # ==============================================================================
 
 class NitoSupremeExecutor:
+    """Deterministic stack machine. Determinism is the property that will let a
+    single server validate State Chains by replay (verify-by-replay, later phase)."""
     def __init__(self, code: Bytecode, environment: Optional[Environment] = None):
         self.code = code
-        self.ip = 0  # Instruction Pointer representing where Nito is walking
-        self.stack = []
-        self.globals = environment if environment else Environment()
-        self.environment = self.globals
+        self.ip = 0
+        self.stack: List[Any] = []
+        self.environment = environment if environment else Environment()
 
-    def camina(self) -> bool:
-        if self.ip >= len(self.code.instructions):
-            return False
+    def step(self) -> bool:
+        if self.ip >= len(self.code.instructions): return False
         instr = self.code.instructions[self.ip]
         self.ip += 1
-        self.haz(instr)
+        self.execute(instr)
         return True
 
-    def pop_stack(self) -> Any:
-        if not self.stack:
-            raise RuntimeError("Stack underflow in NitoSupremeExecutor.")
+    def pop(self) -> Any:
+        if not self.stack: raise NitoError("internal: stack underflow.")
         return self.stack.pop()
 
-    def haz(self, instr: Instruction):
-        op = instr.opcode
-        arg = instr.arg
-        
+    def execute(self, instr: Instruction):
+        op, arg = instr.opcode, instr.arg
         if op == Opcode.LOAD_CONST:
             val = self.code.constants[arg]
-            if isinstance(val, NitoCompiledFunction):
-                # Vincular el entorno léxico actual creando una nueva instancia de cierre inmutable
-                val = NitoCompiledFunction(val.name, val.params, val.bytecode, self.environment)
+            if isinstance(val, NitoBlock):
+                val = NitoBlock(val.name, val.params, val.bytecode, self.environment)
             self.stack.append(val)
         elif op == Opcode.LOAD_NAME:
-            name = self.code.names[arg]
-            self.stack.append(self.environment.get(name))
+            self.stack.append(self.environment.get(self.code.names[arg]))
         elif op == Opcode.STORE_NAME:
-            name = self.code.names[arg]
-            val = self.pop_stack()
-            self.environment.assign(name, val)
-            # Assignment is an expression: leave its value on the stack so the
-            # enclosing statement's POP_TOP balances (prevents stack underflow).
-            self.stack.append(val)
+            val = self.pop()
+            self.environment.assign(self.code.names[arg], val)
+            self.stack.append(val)  # assignment is an expression
         elif op == Opcode.DECLARE_NAME:
-            name_idx, is_const = arg
-            name = self.code.names[name_idx]
-            val = self.pop_stack()
-            self.environment.define(name, val, is_const)
+            self.environment.define(self.code.names[arg], self.pop())
         elif op == Opcode.ADD:
-            right = self.pop_stack()
-            left = self.pop_stack()
-            self.stack.append(evaluate_binary_op(left, "+", right))
+            r = self.pop(); l = self.pop(); self.stack.append(evaluate_binary_op(l, "+", r))
         elif op == Opcode.SUB:
-            right = self.pop_stack()
-            left = self.pop_stack()
-            self.stack.append(evaluate_binary_op(left, "-", right))
+            r = self.pop(); l = self.pop(); self.stack.append(evaluate_binary_op(l, "-", r))
         elif op == Opcode.MUL:
-            right = self.pop_stack()
-            left = self.pop_stack()
-            self.stack.append(evaluate_binary_op(left, "*", right))
+            r = self.pop(); l = self.pop(); self.stack.append(evaluate_binary_op(l, "*", r))
         elif op == Opcode.DIV:
-            right = self.pop_stack()
-            left = self.pop_stack()
-            self.stack.append(evaluate_binary_op(left, "/", right))
+            r = self.pop(); l = self.pop(); self.stack.append(evaluate_binary_op(l, "/", r))
         elif op == Opcode.MOD:
-            right = self.pop_stack()
-            left = self.pop_stack()
-            self.stack.append(evaluate_binary_op(left, "%", right))
+            r = self.pop(); l = self.pop(); self.stack.append(evaluate_binary_op(l, "%", r))
         elif op == Opcode.COMPARE:
-            right = self.pop_stack()
-            left = self.pop_stack()
-            if arg == "nito_no":
-                self.stack.append(not bool(left))
-            else:
-                self.stack.append(evaluate_binary_op(left, arg, right))
+            r = self.pop(); l = self.pop(); self.stack.append(evaluate_binary_op(l, arg, r))
+        elif op == Opcode.NEGATE:
+            self.stack.append(evaluate_binary_op(0, "-", self.pop()))
+        elif op == Opcode.NOT:
+            self.stack.append(not bool(self.pop()))
         elif op == Opcode.JUMP:
             self.ip = arg
         elif op == Opcode.JUMP_IF_FALSE:
-            val = self.pop_stack()
-            if isinstance(val, QuantumNitoType):
-                val = val.unwrap()
-            if not bool(val):
-                self.ip = arg
-        elif op == Opcode.PRINT:
-            val = self.pop_stack()
-            if isinstance(val, QuantumNitoType):
-                val = val.unwrap()
-            if val is True: print("NITO")
-            elif val is False: print("NO_NITO")
-            else: print(val)
+            if not bool(self.pop()): self.ip = arg
+        elif op == Opcode.SHOW:
+            print(nito_str(self.pop()))
+        elif op == Opcode.FAIL:
+            raise NitoError(nito_str(self.pop()))
         elif op == Opcode.CALL:
-            args = []
-            for _ in range(arg):
-                args.insert(0, self.pop_stack())
-            callee = self.pop_stack()
-            
+            args = [self.pop() for _ in range(arg)][::-1]
+            callee = self.pop()
             if isinstance(callee, NitoNativeFunction):
-                res = callee.call(self, args)
-            elif isinstance(callee, NitoCompiledFunction):
-                res = callee.call(self, args)
+                self.stack.append(callee.call(args))
+            elif isinstance(callee, NitoBlock):
+                self.stack.append(callee.call(self, args))
             else:
-                raise TypeError(f"'{callee}' is not callable.")
-            self.stack.append(res)
+                raise NitoError(f"'{nito_str(callee)}' is not a block you can call.")
         elif op == Opcode.RETURN_VALUE:
             self.ip = len(self.code.instructions)
-        elif op == Opcode.IMPORT_FFI:
-            name_idx, module_idx = arg
-            name = self.code.names[name_idx]
-            module_name = self.code.constants[module_idx]
-            try:
-                if module_name:
-                    if module_name not in ALLOWED_FFI_MODULES:
-                        raise ImportError(
-                            f"FFI module '{module_name}' is not in the security allowlist "
-                            f"{sorted(ALLOWED_FFI_MODULES)}."
-                        )
-                    mod = __import__(module_name, fromlist=[name])
-                    func = getattr(mod, name)
-                else:
-                    if name not in ALLOWED_FFI_BUILTINS:
-                        raise ImportError(
-                            f"FFI builtin '{name}' is not in the security allowlist."
-                        )
-                    import builtins
-                    func = getattr(builtins, name)
-                if not callable(func):
-                    raise ImportError(f"FFI target '{name}' is not callable.")
-                self.environment.define(name, NitoNativeFunction(name, func))
-                print(f"[FFI] Importada función nativa '{module_name + '.' if module_name else ''}{name}' con éxito.")
-            except ImportError:
-                raise
-            except Exception as e:
-                raise ImportError(f"Cannot import native function '{name}' from '{module_name}': {e}")
         elif op == Opcode.POP_TOP:
-            self.pop_stack()
+            self.pop()
         elif op == Opcode.GET_PROPERTY:
             name = self.code.names[arg]
-            obj = self.pop_stack()
-            if isinstance(obj, QuantumNitoType):
-                val = obj.get_property(name)
-            elif isinstance(obj, dict):
-                val = QuantumNitoType(obj.get(name, None)) if name not in obj else QuantumNitoType(obj[name])
-            else:
-                try:
-                    val = QuantumNitoType(getattr(obj, name))
-                except AttributeError:
-                    val = QuantumNitoType(None, is_null=True)
-            self.stack.append(val)
+            obj = self.pop()
+            self.stack.append(self._get_property(obj, name))
+        elif op == Opcode.IMPORT_FFI:
+            self._import_ffi(arg)
         else:
-            raise RuntimeError(f"Unknown executor opcode {op.name}")
+            raise NitoError(f"internal: unknown opcode {op.name}")
+
+    def _get_property(self, obj, name):
+        # Nito-safe navigation: missing data yields Nito instead of crashing.
+        if is_nito(obj): return Nito
+        if isinstance(obj, dict): return obj[name] if name in obj else Nito
+        try: return getattr(obj, name)
+        except AttributeError: return Nito
+
+    def _import_ffi(self, arg):
+        name = self.code.names[arg[0]]
+        module = self.code.constants[arg[1]]
+        if module:
+            if module not in ALLOWED_FFI_MODULES:
+                raise NitoError(f"'use' of module '{module}' is not allowed (allowed: {sorted(ALLOWED_FFI_MODULES)}).")
+            func = getattr(__import__(module, fromlist=[name]), name, None)
+        else:
+            if name not in ALLOWED_FFI_BUILTINS:
+                raise NitoError(f"'use' of '{name}' is not allowed.")
+            import builtins
+            func = getattr(builtins, name, None)
+        if not callable(func):
+            raise NitoError(f"'use' target '{name}' was not found or is not callable.")
+        self.environment.define(name, NitoNativeFunction(name, func))
 
 # ==============================================================================
-# COMPATIBILITY WRAPPER (EVALUATOR)
+# RUNNER, REPL & CLI
 # ==============================================================================
 
-class Evaluator:
-    def __init__(self, global_env: Optional[Environment] = None):
-        self.global_env = global_env if global_env else Environment()
-        self.environment = self.global_env
-        
-        # Inject native simulator functions
-        self.global_env.define("iniciar_bot", NitoNativeFunction("iniciar_bot", self._native_iniciar_bot))
-        self.global_env.define("responder", NitoNativeFunction("responder", self._native_responder))
-        self.global_env.define("QuantumNito", NitoNativeFunction("QuantumNito", self._native_quantum_nito))
-        self.global_env.define("crear_payload", NitoNativeFunction("crear_payload", self._native_crear_payload))
+class Interpreter:
+    def __init__(self):
+        self.global_env = Environment()
 
-    def _native_iniciar_bot(self, token: Any) -> str:
-        print(f"[Bot Simulator] Bot conectado exitosamente usando token: '{token}'")
-        return "BOT_ACTIVE"
-
-    def _native_responder(self, msg: Any):
-        if is_nito(msg):
-            print("[Bot Response] Nito (Absorbido)")
-        else:
-            print(f"[Bot Response] {msg}")
-
-    def _native_quantum_nito(self, val: Any) -> QuantumNitoType:
-        return QuantumNitoType(val)
-
-    def _native_crear_payload(self, has_avatar: Any) -> dict:
-        if has_avatar:
-            return {"user": {"profile": {"avatar": "avatar_premium.png"}}}
-        else:
-            return {"user": {}}
-
-    def evaluate(self, node: ASTNode) -> Any:
-        # Compiler AST to bytecode
+    def run(self, source: str) -> Any:
+        tokens = Lexer(source).tokenize()
+        ast = Parser(tokens).parse()
         compiler = Compiler()
-        compiler.compile(node)
+        compiler.compile(ast)
         compiler.code.emit(Opcode.RETURN_VALUE)
-        
-        # Run Nito walking the bytecode stream
-        nito = NitoSupremeExecutor(compiler.code, self.environment)
-        nito.globals = self.global_env
-        while nito.camina():
+        vm = NitoSupremeExecutor(compiler.code, self.global_env)
+        while vm.step():
             pass
-            
-        if nito.stack:
-            return nito.stack[-1]
-        return None
+        return vm.stack[-1] if vm.stack else Nito
 
-# ==============================================================================
-# INTELIGENCIA PROPIA (FALLBACK ENGINE)
-# ==============================================================================
-
-def ai_fallback_interpreter(source_code: str, env: Environment) -> Any:
-    print("\n[Inteligencia Propia] Traditional AST parser failed. Activating Fallback AI System...")
-    lines = source_code.split('\n')
-    last_val = None
-    
-    for idx, line in enumerate(lines):
-        line = line.strip()
-        if not line or line.startswith("//"):
-            continue
-            
-        print(f"[Inteligencia Propia] Analyzing line {idx+1}: {repr(line)}")
-        
-        # Fallback Print Intent (anywhere in the line)
-        if any(k in line.lower() for k in ("imprimir", "print", "nito_imprimir")):
-            # Extract print content by removing keyword & parentheses
-            expr_str = line
-            for k in ("nito_imprimir", "imprimir", "print"):
-                expr_str = re.sub(rf'\b{k}\b', '', expr_str, flags=re.IGNORECASE)
-            expr_str = expr_str.strip().strip('()').strip(';')
-            
-            if expr_str.startswith('"') and expr_str.endswith('"'):
-                val = expr_str[1:-1]
-            elif expr_str in ("Nito", "NITO"):
-                val = NitoSupreme
-            else:
-                val = evaluate_ai_expression(expr_str, env)
-            
-            if val is True: print("NITO")
-            elif val is False: print("NO_NITO")
-            else: print(val)
-            last_val = None
-            continue
-            
-        # Fallback Assignment / Declaration Intent (scrambled or ordered)
-        if any(op in line for op in ("=", " es ", " es igual a ")):
-            parts = re.split(r'=|\bes\b|\bes igual a\b', line, maxsplit=1)
-            left = parts[0].strip()
-            right = parts[1].strip().rstrip(';')
-            
-            var_name = left
-            for kw in ("nito", "nitosexo"):
-                var_name = re.sub(rf'\b{kw}\b', '', var_name, flags=re.IGNORECASE)
-            var_name = var_name.strip()
-            
-            # Scrambled healing: If left-hand is not an identifier but right-hand contains one
-            if not re.match(r'^[a-zA-Z_][a-zA-Z0-9_]*$', var_name):
-                potential_var = right
-                for kw in ("nito", "nitosexo"):
-                    potential_var = re.sub(rf'\b{kw}\b', '', potential_var, flags=re.IGNORECASE)
-                potential_var = potential_var.strip()
-                if re.match(r'^[a-zA-Z_][a-zA-Z0-9_]*$', potential_var):
-                    var_name = potential_var
-                    right = left
-            
-            if re.match(r'^[a-zA-Z_][a-zA-Z0-9_]*$', var_name):
-                if right.startswith('"') and right.endswith('"'):
-                    val = right[1:-1]
-                else:
-                    val = evaluate_ai_expression(right, env)
-                
-                try:
-                    env.assign(var_name, val)
-                except NameError:
-                    is_const = "nitosexo" in line.lower()
-                    env.define(var_name, val, is_const)
-                print(f"[Inteligencia Propia] Bound variable '{var_name}' = {val}")
-                last_val = val
-                continue
-            
-        # Plain Expression fallback
-        try:
-            last_val = evaluate_ai_expression(line, env)
-            print(f"[Inteligencia Propia] Evaluated expression to: {last_val}")
-        except SupremeViolationError as e:
-            raise e
-        except Exception as e:
-            print(f"[Inteligencia Propia Warning] Line {idx+1} could not be fallback-evaluated: {e}")
-            
-    return last_val
-
-def evaluate_ai_expression(expr: str, env: Environment, depth: int = 0) -> Any:
-    if depth > 10:
-        raise RuntimeError("Max recursion depth exceeded in Fallback AI.")
-    expr = expr.replace(';', '').strip()
-    
-    if "Nito" in expr or "NITO" in expr:
-        if "==" in expr or "es igual a" in expr:
-            parts = re.split(r'==|es igual a', expr)
-            p1 = parts[0].strip()
-            p2 = parts[1].strip()
-            return (p1 == "Nito" or p1 == "NITO") and (p2 == "Nito" or p2 == "NITO")
-        if ">" in expr or "es mayor que" in expr:
-            parts = re.split(r'>|es mayor que', expr)
-            p1 = parts[0].strip()
-            return p1 == "Nito" or p1 == "NITO"
-        if "<" in expr or "es menor que" in expr:
-            parts = re.split(r'<|es menor que', expr)
-            p2 = parts[1].strip()
-            return p2 == "Nito" or p2 == "NITO"
-
-        # Check heresies first
-        if "-" in expr:
-            parts = expr.split('-')
-            p1 = parts[0].strip()
-            p2 = parts[1].strip()
-            if p1 in ("Nito", "NITO") and p2 in ("Nito", "NITO"):
-                raise SupremeViolationError("Heresy: Cannot subtract Nito from Nito.")
-            if p2 in ("Nito", "NITO"):
-                raise SupremeViolationError("Heresy: Cannot subtract Nito from a finite value.")
-            if p1 in ("Nito", "NITO"):
-                return NitoSupreme
-
-        if "*" in expr:
-            parts = expr.split('*')
-            p1 = parts[0].strip()
-            p2 = parts[1].strip()
-            other = None
-            if p1 in ("Nito", "NITO"):
-                other = p2
-            elif p2 in ("Nito", "NITO"):
-                other = p1
-            if other is not None:
-                try:
-                    val = float(other) if '.' in other else int(other)
-                    if val <= 0:
-                        raise SupremeViolationError("Heresy: Cannot scale Nito by a non-positive factor.")
-                except ValueError:
-                    pass
-            return NitoSupreme
-
-        if "/" in expr:
-            parts = expr.split('/')
-            p1 = parts[0].strip()
-            p2 = parts[1].strip()
-            if p2 in ("Nito", "NITO"):
-                if p1 in ("Nito", "NITO"):
-                    raise SupremeViolationError("Heresy: Cannot divide Nito by Nito.")
-                return 0.0
-            if p1 in ("Nito", "NITO"):
-                try:
-                    val = float(p2) if '.' in p2 else int(p2)
-                    if val <= 0:
-                        raise SupremeViolationError("Heresy: Cannot divide Nito by a non-positive factor.")
-                except ValueError:
-                    pass
-                return NitoSupreme
-
-        if "+" in expr:
-            return NitoSupreme
-            
-    # Math expression evaluation with environment variables substitution
-    # First, locate all potential variable names in the expression
-    words = re.findall(r'\b[a-zA-Z_][a-zA-Z0-9_]*\b', expr)
-    resolved_expr = expr
-    for word in words:
-        if word not in ("Nito", "NITO", "NO_NITO"):
-            try:
-                val = env.get(word)
-                if isinstance(val, (int, float)):
-                    resolved_expr = re.sub(rf'\b{word}\b', str(val), resolved_expr)
-                elif isinstance(val, str):
-                    resolved_expr = re.sub(rf'\b{word}\b', repr(val), resolved_expr)
-            except NameError:
-                pass
-                
-    # If the expression contains only numbers, math operators, logic comparators, and spaces, evaluate it safely
-    if re.match(r'^[0-9.+\-*/\s()<>!=|&]+$|^(True|False)$', resolved_expr):
-        try:
-            return eval(resolved_expr, {"__builtins__": None}, {})
-        except Exception:
-            pass
-
-    if expr in env.values:
-        return env.get(expr)
-        
-    try:
-        return float(expr) if '.' in expr else int(expr)
-    except ValueError:
-        pass
-        
-    return expr
-
-# ==============================================================================
-# CLI & RUNNER
-# ==============================================================================
-
-def run_code(source: str, evaluator: Evaluator) -> Any:
-    try:
-        lexer = Lexer(source)
-        tokens = lexer.tokenize()
-        parser = Parser(tokens)
-        ast = parser.parse()
-        return evaluator.evaluate(ast)
-    except SupremeViolationError as e:
-        # Never catch or heal heresy; propagate the exception
-        raise e
-    except (ImportError, ZeroDivisionError) as e:
-        # FFI security denials and uncorrectable math faults are real errors,
-        # not typos for the fallback engine to "heal". Surface them honestly.
-        raise e
-    except Exception as e:
-        # Fallback to AI System for any syntax, lexical, or general runtime error (like NameError)
-        return ai_fallback_interpreter(source, evaluator.environment)
+def run_code(source: str, interpreter: Optional[Interpreter] = None) -> Any:
+    """Run NitoScript source. Errors surface honestly — there is no silent healing."""
+    return (interpreter or Interpreter()).run(source)
 
 def start_repl():
-    print("Welcome to NitoScript Interactive REPL (v0.1.3)")
-    evaluator = Evaluator()
+    print("NitoScript v0.2.0 — type 'exit' to leave.")
+    interp = Interpreter()
     while True:
         try:
-            line = input("Nito> ")
-            if line.strip() in ("exit", "exit()", "quit", "quit()"):
-                break
-            if not line.strip():
-                continue
-            run_code(line, evaluator)
+            line = input("nito> ")
         except (KeyboardInterrupt, EOFError):
-            print("\nGoodbye.")
-            break
-        except (SupremeViolationError, ImportError, ZeroDivisionError) as e:
+            print("\nbye."); break
+        if line.strip() in ("exit", "quit"): break
+        if not line.strip(): continue
+        try:
+            run_code(line, interp)
+        except (NitoError, NitoSyntaxError) as e:
             print(f"[Error] {e}", file=sys.stderr)
 
 def main():
     if len(sys.argv) > 1:
-        filepath = sys.argv[1]
         try:
-            with open(filepath, 'r', encoding='utf-8') as f:
+            with open(sys.argv[1], "r", encoding="utf-8") as f:
                 source = f.read()
-            evaluator = Evaluator()
-            run_code(source, evaluator)
         except FileNotFoundError:
-            print(f"Error: File not found '{filepath}'", file=sys.stderr)
-            sys.exit(1)
-        except (SupremeViolationError, ImportError, ZeroDivisionError) as e:
-            print(f"[Error] {e}", file=sys.stderr)
-            sys.exit(1)
+            print(f"[Error] file not found: '{sys.argv[1]}'", file=sys.stderr); sys.exit(1)
+        try:
+            run_code(source)
+        except (NitoError, NitoSyntaxError) as e:
+            print(f"[Error] {e}", file=sys.stderr); sys.exit(1)
     else:
         start_repl()
 

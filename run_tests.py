@@ -1,406 +1,124 @@
-import sys
+"""NitoScript v0.2.0 test suite — runs everything through the real VM.
+There is no fallback interpreter, so any failure is a real failure."""
 import io
-from nito import Lexer, Parser, Evaluator, TokenType, run_code, Environment, NitoSupreme, SupremeViolationError
+import sys
+from contextlib import redirect_stdout
 
-# ==============================================================================
-# ORIGINAL TESTS
-# ==============================================================================
+from nito import run_code, Interpreter, Nito, NitoError, NitoSyntaxError
 
-def test_levenshtein_healing():
-    print("--- Running Test 1: Levenshtein Healing ---")
-    source = "nitosxs a es 10\n"
-    old_stdout = sys.stdout
-    sys.stdout = buffer = io.StringIO()
-    
-    evaluator = Evaluator()
-    run_code(source, evaluator)
-    
-    sys.stdout = old_stdout
-    output = buffer.getvalue()
-    print("Output captured:\n", output)
-    
-    assert "Auto-healed typo 'nitosxs' to keyword 'nitosexo'" in output
-    assert evaluator.environment.get("a") == 10
-    assert "a" in evaluator.environment.constants
-    print("Test 1 Passed!\n")
 
-def test_indentation_blocks():
-    print("--- Running Test 2: Indentation Blocks & Supreme Axiom ---")
-    source = (
-        "nito z = 5\n"
-        "nito_si z > 2 haz\n"
-        "    nito_imprimir z + Nito\n"
-    )
-    
-    old_stdout = sys.stdout
-    sys.stdout = buffer = io.StringIO()
-    
-    evaluator = Evaluator()
-    run_code(source, evaluator)
-    
-    sys.stdout = old_stdout
-    output = buffer.getvalue()
-    print("Output captured:\n", output)
-    
-    assert "Nito" in output
-    print("Test 2 Passed!\n")
+def run(source: str) -> str:
+    """Run source on a fresh interpreter and return captured stdout."""
+    buf = io.StringIO()
+    with redirect_stdout(buf):
+        run_code(source, Interpreter())
+    return buf.getvalue()
 
-def test_natural_language_synonyms():
-    print("--- Running Test 3: Natural Language Synonyms ---")
-    source = 'nito_si Nito es mayor que 9999 entonces nito_imprimir("supreme")\n'
-    
-    old_stdout = sys.stdout
-    sys.stdout = buffer = io.StringIO()
-    
-    evaluator = Evaluator()
-    run_code(source, evaluator)
-    
-    sys.stdout = old_stdout
-    output = buffer.getvalue()
-    print("Output captured:\n", output)
-    
-    assert "supreme" in output
-    print("Test 3 Passed!\n")
 
-def test_intelligence_fallback():
-    print("--- Running Test 4: Inteligencia Propia (Fallback Engine) ---")
-    source = (
-        "nito a = 42\n"
-        "imprimir Nito es mayor que 10\n"
-    )
-    
-    old_stdout = sys.stdout
-    sys.stdout = buffer = io.StringIO()
-    
-    evaluator = Evaluator()
-    run_code(source, evaluator)
-    
-    sys.stdout = old_stdout
-    output = buffer.getvalue()
-    print("Output captured:\n", output)
-    
-    assert "Activating Fallback AI System..." in output
-    assert "NITO" in output
-    print("Test 4 Passed!\n")
-
-def test_supreme_heresy_violations():
-    print("--- Running Test 5: Supreme Heresy Exceptions ---")
-    evaluator = Evaluator()
-    
+def expect_error(source, exc):
     try:
-        run_code("Nito - Nito", evaluator)
-        assert False, "Should raise SupremeViolationError for Nito - Nito"
-    except SupremeViolationError as e:
-        print("Caught expected subtraction heresy:", e)
-        
-    try:
-        run_code("Nito * 0", evaluator)
-        assert False, "Should raise SupremeViolationError for Nito * 0"
-    except SupremeViolationError as e:
-        print("Caught expected non-positive scaling heresy:", e)
+        run(source)
+    except exc:
+        return True
+    raise AssertionError(f"expected {exc.__name__} for: {source!r}")
 
-    try:
-        run_code("Nito / -2", evaluator)
-        assert False, "Should raise SupremeViolationError for Nito / -2"
-    except SupremeViolationError as e:
-        print("Caught expected division heresy:", e)
-        
-    print("Test 5 Passed!\n")
 
-# ==============================================================================
-# INHUMAN AUTOHEALING (v0.1.0) TESTS
-# ==============================================================================
+def test_let_and_arithmetic():
+    assert run("let x = 2 + 3 * 4\nshow x\n").strip() == "14"
+    assert run("show (2 + 3) * 4\n").strip() == "20"
+    print("ok  1 let + arithmetic precedence")
 
-def test_fuzzy_symbol_healing():
-    print("--- Running Test 6: Fuzzy Symbol Healing (Runtime) ---")
-    source = (
-        "nito varEspectacular = 100\n"
-        "nito_imprimir(varEspectaculr + 50)\n"
-        "varEspectaculr = 200\n"
-        "nito_imprimir(varEspectacular)\n"
-    )
-    
-    old_stdout = sys.stdout
-    sys.stdout = buffer = io.StringIO()
-    
-    evaluator = Evaluator()
-    run_code(source, evaluator)
-    
-    sys.stdout = old_stdout
-    output = buffer.getvalue()
-    print("Output captured:\n", output)
-    
-    # Assert fuzzy resolution warning was printed
-    assert "Fuzzy resolved undefined variable 'varEspectaculr'" in output
-    # Assert correct math output (100 + 50 = 150)
-    assert "150.0" in output or "150" in output
-    # Assert constant update also healed and resolved to varEspectacular
-    assert "200.0" in output or "200" in output
-    print("Test 6 Passed!\n")
 
-def test_grammar_token_repair():
-    print("--- Running Test 7: Grammar Token Repair (Parser) ---")
-    # x has duplicate operators '+ *' (should skip *)
-    # y has missing right hand operand '20 +' (should inject 0)
-    source = (
-        "nito x = 10 + * 5\n"
-        "nito y = 20 +\n"
-        "nito_imprimir(x + y)\n"
-    )
-    
-    old_stdout = sys.stdout
-    sys.stdout = buffer = io.StringIO()
-    
-    evaluator = Evaluator()
-    run_code(source, evaluator)
-    
-    sys.stdout = old_stdout
-    output = buffer.getvalue()
-    print("Output captured:\n", output)
-    
-    assert "Skipped unexpected binary operator '*'" in output
-    assert "Injected default value '0' for missing expression operand" in output
-    # x + y = 15 + 20 = 35
-    assert "35.0" in output or "35" in output
-    print("Test 7 Passed!\n")
+def test_strings_and_booleans():
+    assert run('show "hi" + " " + "there"\n').strip() == "hi there"
+    assert run('show 1 + 1 == 2\n').strip() == "true"
+    assert run('show 3 < 1\n').strip() == "false"
+    # number formatting: integer-valued floats print without ".0"
+    assert run("show 10 / 2\n").strip() == "5"
+    print("ok  2 strings + booleans + number formatting")
 
-def test_fuzzy_indentation_alignment():
-    print("--- Running Test 8: Fuzzy Indentation Alignment ---")
-    # z is indented by 4 spaces.
-    # The inner line is indented by 6 spaces (not exactly 8, but within 3 of 4/8).
-    # It should align cleanly.
-    source = (
-        "nito_si NITO haz\n"
-        "    nito z = 99\n"
-        "      nito_imprimir(z)\n"
-    )
-    
-    old_stdout = sys.stdout
-    sys.stdout = buffer = io.StringIO()
-    
-    evaluator = Evaluator()
-    run_code(source, evaluator)
-    
-    sys.stdout = old_stdout
-    output = buffer.getvalue()
-    print("Output captured:\n", output)
-    
-    # Should run and print 99
-    assert "99" in output
-    print("Test 8 Passed!\n")
 
-def test_scrambled_intent_engine():
-    print("--- Running Test 9: Scrambled Intent Engine (IP 0.1.0) ---")
-    # '100 es nito miVariable' is scrambled declaration
-    # 'print(miVariable)' has print but no prefix, triggers fallback
-    source = (
-        "100 es nito miVariable\n"
-        "print(miVariable)\n"
-    )
-    
-    old_stdout = sys.stdout
-    sys.stdout = buffer = io.StringIO()
-    
-    evaluator = Evaluator()
-    run_code(source, evaluator)
-    
-    sys.stdout = old_stdout
-    output = buffer.getvalue()
-    print("Output captured:\n", output)
-    
-    assert "Bound variable 'miVariable' = 100" in output
-    assert "100" in output
-    print("Test 9 Passed!\n")
+def test_if_elif_else():
+    src = ("let x = 10\n"
+           "if x == 5:\n    show \"five\"\n"
+           "elif x == 10:\n    show \"ten\"\n"
+           "else:\n    show \"other\"\n")
+    assert run(src).strip() == "ten"
+    # inline single-statement form
+    assert run("if true: show \"yes\"\n").strip() == "yes"
+    print("ok  3 if / elif / else (+ inline form)")
 
-def test_ffi_and_bytecode_vm():
-    print("--- Running Test 10: FFI & Bytecode VM (v0.1.0) ---")
-    source = (
-        "nito_importar math.sin\n"
-        "nito val = sin(0)\n"
-        "nito_imprimir(val)\n"
-    )
-    
-    old_stdout = sys.stdout
-    sys.stdout = buffer = io.StringIO()
-    
-    evaluator = Evaluator()
-    run_code(source, evaluator)
-    
-    sys.stdout = old_stdout
-    output = buffer.getvalue()
-    print("Output captured:\n", output)
-    
-    assert "Importada función nativa 'math.sin'" in output
-    assert "0.0" in output or "0" in output
-    print("Test 10 Passed!\n")
 
-def test_if_elif_else_compilation():
-    print("--- Running Test 11: Elif Conds & ExprStmt Traditional Compilations ---")
-    source = (
-        "nito x = 10\n"
-        "nito_si (x == 5) entonces {\n"
-        "    nito_imprimir(\"rama-if\")\n"
-        "} nito_sino_si (x == 10) entonces {\n"
-        "    nito_imprimir(\"rama-elif\")\n"
-        "} nito_sino {\n"
-        "    nito_imprimir(\"rama-else\")\n"
-        "}\n"
-    )
-    old_stdout = sys.stdout
-    sys.stdout = buffer = io.StringIO()
-    
-    evaluator = Evaluator()
-    run_code(source, evaluator)
-    
-    sys.stdout = old_stdout
-    output = buffer.getvalue()
-    print("Output captured:\n", output)
-    
-    # Debe compilar tradicionalmente sin activar fallback
-    assert "Activating Fallback AI System..." not in output
-    assert "rama-elif" in output
-    print("Test 11 Passed!\n")
+def test_while_and_reassignment():
+    src = ("let i = 0\n"
+           "while i < 3:\n    show i\n    i = i + 1\n"
+           "show i\n")
+    assert [l for l in run(src).splitlines() if l] == ["0", "1", "2", "3"]
+    print("ok  4 while loop + reassignment (the v0.1 underflow bug stays dead)")
 
-def test_nested_closures():
-    print("--- Running Test 12: Lexical Closures and Nested Environments ---")
-    source = (
-        "nitosegs crearSumador(incremento) {\n"
-        "    nitosegs sumar(valor) {\n"
-        "        nito_retorna valor + incremento\n"
-        "    }\n"
-        "    nito_retorna sumar\n"
-        "}\n"
-        "nito sumar5 = crearSumador(5)\n"
-        "nito_imprimir(sumar5(10))\n"
-    )
-    old_stdout = sys.stdout
-    sys.stdout = buffer = io.StringIO()
-    
-    evaluator = Evaluator()
-    run_code(source, evaluator)
-    
-    sys.stdout = old_stdout
-    output = buffer.getvalue()
-    print("Output captured:\n", output)
-    
-    # Debe retornar 15.0 o 15
-    assert "15" in output
-    print("Test 12 Passed!\n")
 
-def test_quantumnito_schrodinger_schema():
-    print("--- Running Test 13: QuantumNito Schrödinger's Schema ---")
-    
-    # Caso 1: El payload tiene la propiedad avatar
-    source1 = (
-        'nito payload = QuantumNito(crear_payload(NITO))\n'
-        'nito avatar_url = payload.user.profile.avatar nito_o "default.png"\n'
-        'nito_imprimir(avatar_url)\n'
-    )
-    
-    # Caso 2: El payload no tiene la propiedad avatar (user es un dict vacío)
-    source2 = (
-        'nito payload = QuantumNito(crear_payload(NO_NITO))\n'
-        'nito avatar_url = payload.user.profile.avatar nito_o "default.png"\n'
-        'nito_imprimir(avatar_url)\n'
-    )
+def test_blocks_and_recursion():
+    assert run("block double(x):\n    give x * 2\nshow double(21)\n").strip() == "42"
+    fac = ("block fact(n):\n"
+           "    if n <= 1:\n        give 1\n"
+           "    give n * fact(n - 1)\n"
+           "show fact(5)\n")
+    assert run(fac).strip() == "120"
+    # lexical closure
+    clo = ("block adder(step):\n"
+           "    block add(v):\n        give v + step\n"
+           "    give add\n"
+           "let add5 = adder(5)\n"
+           "show add5(10)\n")
+    assert run(clo).strip() == "15"
+    print("ok  5 blocks + recursion + closures")
 
-    old_stdout = sys.stdout
-    sys.stdout = buffer1 = io.StringIO()
-    evaluator1 = Evaluator()
-    run_code(source1, evaluator1)
-    
-    sys.stdout = buffer2 = io.StringIO()
-    evaluator2 = Evaluator()
-    run_code(source2, evaluator2)
-    
-    sys.stdout = old_stdout
-    output1 = buffer1.getvalue().strip()
-    output2 = buffer2.getvalue().strip()
-    
-    print("Output 1 (con avatar):", output1)
-    print("Output 2 (sin avatar):", output2)
-    
-    assert "avatar_premium.png" in output1
-    assert "default.png" in output2
-    print("Test 13 Passed!\n")
 
-def test_while_loop_and_reassignment():
-    print("--- Running Test 14: While Loop & Variable Reassignment (Real VM) ---")
-    source = (
-        "nito i = 0\n"
-        "nito_mientras (i < 3) haz {\n"
-        "    nito_imprimir(i)\n"
-        "    i = i + 1\n"
-        "}\n"
-        "nito_imprimir(i)\n"
-    )
+def test_flow_chain_pipe():
+    assert run("block double(x):\n    give x * 2\nshow 5 |> double |> double\n").strip() == "20"
+    # pipe prepends the value as the first argument
+    add = ("block add(a, b):\n    give a + b\nshow 10 |> add(5)\n")
+    assert run(add).strip() == "15"
+    print("ok  6 flow chains with |>")
 
-    old_stdout = sys.stdout
-    sys.stdout = buffer = io.StringIO()
 
-    evaluator = Evaluator()
-    run_code(source, evaluator)
+def test_nito_is_central():
+    assert run("show Nito\n").strip() == "Nito"
+    # absence propagates through arithmetic
+    assert run("show Nito + 5\n").strip() == "Nito"
+    assert run("show 2 * Nito\n").strip() == "Nito"
+    # collapse with `or`
+    assert run('show Nito or "default"\n').strip() == "default"
+    assert run('show "real" or "default"\n').strip() == "real"
+    # Nito is falsy
+    assert run('if Nito:\n    show "a"\nelse:\n    show "b"\n').strip() == "b"
+    # safe navigation: a missing property is Nito, not a crash
+    assert run('let name = Nito.user.name or "Guest"\nshow name\n').strip() == "Guest"
+    print("ok  7 Nito is the central value (empty, propagating, safe, collapsible)")
 
-    sys.stdout = old_stdout
-    output = buffer.getvalue()
-    print("Output captured:\n", output)
 
-    # Must run on the real bytecode VM, never degrade to the fallback engine
-    assert "Activating Fallback AI System..." not in output, "Reassignment must not crash the VM into fallback"
-    # The loop must actually iterate three times: 0, 1, 2
-    lines = [l for l in output.splitlines() if l.strip() in ("0", "1", "2", "3")]
-    assert lines == ["0", "1", "2", "3"], f"Loop did not iterate correctly: {lines}"
-    print("Test 14 Passed!\n")
+def test_ffi_allowlist():
+    assert run("use math.sqrt\nshow sqrt(9)\n").strip() == "3"
+    print("ok  8 FFI: allowed module works")
 
-def test_reassignment_expression_value():
-    print("--- Running Test 15: Assignment Yields Its Value (Real VM) ---")
-    source = (
-        "nito x = 1\n"
-        "x = 41\n"
-        "nito_imprimir(x + 1)\n"
-    )
 
-    old_stdout = sys.stdout
-    sys.stdout = buffer = io.StringIO()
+def test_errors_are_real_not_healed():
+    expect_error("show 5 / 0\n", NitoError)              # uncorrectable math fault
+    expect_error("use os.system\n", NitoError)           # FFI security denial
+    expect_error("let x = \nshow x\n", NitoSyntaxError)  # real syntax error, no placeholder
+    expect_error("show undefined_name\n", NitoError)     # typo -> clear error, not silent
+    expect_error('fail "boom"\n', NitoError)             # explicit failure
+    print("ok  9 errors surface honestly (no silent healing / fallback)")
 
-    evaluator = Evaluator()
-    run_code(source, evaluator)
-
-    sys.stdout = old_stdout
-    output = buffer.getvalue()
-    print("Output captured:\n", output)
-
-    assert "Activating Fallback AI System..." not in output
-    assert "42" in output
-    print("Test 15 Passed!\n")
 
 if __name__ == "__main__":
-    test_levenshtein_healing()
-    test_indentation_blocks()
-    test_natural_language_synonyms()
-    test_intelligence_fallback()
-    test_supreme_heresy_violations()
-    
-    # NitoScript 0.1.0 Inhuman Autohealing Tests
-    test_fuzzy_symbol_healing()
-    test_grammar_token_repair()
-    test_fuzzy_indentation_alignment()
-    test_scrambled_intent_engine()
-    
-    # NitoScript 0.1.0 Bytecode VM & FFI Tests
-    test_ffi_and_bytecode_vm()
-    
-    # NitoScript 0.1.0 Elif and Expression Statement traditional compiler tests
-    test_if_elif_else_compilation()
-    
-    # NitoScript 0.1.0 Lexical Closures tests
-    test_nested_closures()
-    
-    # NitoScript 0.1.2 QuantumNito tests
-    test_quantumnito_schrodinger_schema()
-    
-    # NitoScript 0.1.3 control-flow & state tests
-    test_while_loop_and_reassignment()
-    test_reassignment_expression_value()
-    
-    print("All NitoScript tests completed successfully!")
+    test_let_and_arithmetic()
+    test_strings_and_booleans()
+    test_if_elif_else()
+    test_while_and_reassignment()
+    test_blocks_and_recursion()
+    test_flow_chain_pipe()
+    test_nito_is_central()
+    test_ffi_allowlist()
+    test_errors_are_real_not_healed()
+    print("\nAll NitoScript v0.2.0 tests passed.")
