@@ -1,0 +1,30 @@
+# 03 — Chains: a thing that remembers, and the actions that change it
+#
+# A 'chain' has 'state' (what it remembers) and 'block' transitions
+# (the only ways to change it). Every change is recorded and hash-linked,
+# so the chain can prove its own history by replay — no mining, no servers.
+
+chain Wallet:
+    state:
+        balance = 0
+    block deposit(amount):
+        balance = balance + amount
+    block withdraw(amount):
+        if balance >= amount:
+            balance = balance - amount
+        else:
+            fail "Insufficient funds"     # a failed action changes nothing
+
+# Create one with 'new', then drive it with its actions.
+let w = new Wallet()
+w.deposit(100)
+w.withdraw(30)
+
+show "balance: " + w.balance             # 70
+show "history: " + w.history             # the ordered ledger of actions
+show "root:    " + w.root                # SHA-256 fingerprint of the whole state
+
+# verify() re-runs the entire history and checks every hash-link plus the
+# live state. A single machine can validate the chain this way, cheaply.
+show "verify:  " + w.verify()            # true
+show "replay reproduces root: " + (w.replay() == w.root)   # true

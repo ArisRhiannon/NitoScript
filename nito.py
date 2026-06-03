@@ -14,6 +14,8 @@ from contextlib import redirect_stdout
 from enum import Enum, auto
 from typing import List, Dict, Set, Optional, Any
 
+__version__ = "0.2.0"
+
 # ==============================================================================
 # FFI SECURITY ALLOWLIST
 # ==============================================================================
@@ -1039,7 +1041,7 @@ def run_code(source: str, interpreter: Optional[Interpreter] = None) -> Any:
     return (interpreter or Interpreter()).run(source)
 
 def start_repl():
-    print("NitoScript v0.2.0 — type 'exit' to leave.")
+    print(f"NitoScript v{__version__} — type 'exit' to leave.")
     interp = Interpreter()
     while True:
         try:
