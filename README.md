@@ -144,17 +144,18 @@ show w.replay() == w.root      # true — replay deterministically reproduces th
 
 ---
 
-## NitoChain (not yet — but the core is ready)
+## NitoChain — the distribution layer
 
-NitoChain will distribute and co-sign chains across machines. NitoScript v0.2.0 deliberately
-ships only the **local, verifiable core** that makes that a switch-flip later: deterministic
-execution, hash-linked state roots, and verify-by-replay. Signatures on transitions,
-networking, multi-validator agreement, lattice/CRDT merge of independent chains, and the
-native **Nito** token are **designed-for but not implemented yet**. Nothing about them requires
-changing the chain semantics shown above.
+**[NitoChain](https://github.com/ArisRhiannon/NitoChain)** is the distribution layer, now a
+separate repo with a working reference node: the native **Nito** token (mint/transfer),
+**NitoContracts** (deploy & call NitoScript chains), an ordered hash-linked ledger, and
+verify-by-replay — all built on the deterministic core shown above. Security comes from hashing
+and deterministic replay, **not** from mining, which is what keeps it lightweight enough for a
+single validator.
 
-Security comes from hashing and deterministic replay, not from mining — that is what keeps it
-lightweight.
+Still deferred there: signatures on transactions (ed25519), networking, multi-validator
+agreement, and lattice/CRDT merge of independent chains. None require changing NitoScript's
+chain semantics.
 
 ---
 
@@ -171,7 +172,7 @@ docs/v0.2.0-design.md   # the design & roadmap behind this release
 
 Working and tested today (v0.2.0): the language core, Blocks, flow chains, State Chains, and
 verify-by-replay. Earlier esoteric releases and the NitoBlocks visual IDE are preserved at the
-`v0.1.3` git tag. What's next is NitoChain (see above).
+`v0.1.3` git tag. The distribution layer lives in [NitoChain](https://github.com/ArisRhiannon/NitoChain).
 
 ## License
 
